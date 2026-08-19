@@ -107,10 +107,22 @@ function newId() {
 // ============================================================
 // TABLE: EQUIPMENT (ציוד)
 // Schema: id(0), name(1), category(2), brand(3), serial(4),
-//         notes(5), status(6), active(7), addedDate(8)
+//         notes(5), status(6), active(7), addedDate(8), assetTag(9)
 // ============================================================
 
-const EQUIPMENT_HEADERS = ['id', 'name', 'category', 'brand', 'serial', 'notes', 'status', 'active', 'addedDate'];
+const EQUIPMENT_HEADERS = ['id', 'name', 'category', 'brand', 'serial', 'notes', 'status', 'active', 'addedDate', 'assetTag'];
+
+// מק״ט פנימי רץ: 42-0001, 42-0002...
+// כולל שורות שנמחקו (active=לא) — מספר לא ממוחזר לעולם, כדי שמדבקה ישנה לא תצביע על פריט אחר.
+function nextAssetTag(sheet) {
+  const data = sheet.getDataRange().getValues();
+  let max = 0;
+  for (let i = 1; i < data.length; i++) {
+    const m = /^42-(\d+)$/.exec(String(data[i][9] || ''));
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  }
+  return '42-' + String(max + 1).padStart(4, '0');
+}
 
 function equipmentRowToObj(r) {
   return {
@@ -121,7 +133,8 @@ function equipmentRowToObj(r) {
     serial:    String(r[4] || ''),
     notes:     String(r[5] || ''),
     status:    String(r[6] || ST_AVAILABLE),
-    addedDate: normalizeDate(r[8])
+    addedDate: normalizeDate(r[8]),
+    assetTag:  String(r[9] || '')
   };
 }
 
@@ -130,6 +143,7 @@ function addEquipment(data) {
     if (!data.name) return { success: false, message: 'חסר שם פריט' };
     const sheet = ensureSheet('equipment', EQUIPMENT_HEADERS);
     const id = newId();
+    const tag = nextAssetTag(sheet);
     sheet.appendRow([
       id,
       data.name,
@@ -139,9 +153,10 @@ function addEquipment(data) {
       data.notes  || '',
       ST_AVAILABLE,
       'כן',
-      fmtDate(new Date())
+      fmtDate(new Date()),
+      tag
     ]);
-    return { success: true, message: 'הפריט נוסף', id: id };
+    return { success: true, message: 'הפריט נוסף · מק״ט ' + tag, id: id, assetTag: tag };
   } catch (e) {
     return { success: false, message: e.toString() };
   }

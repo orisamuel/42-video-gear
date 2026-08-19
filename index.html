@@ -51,7 +51,7 @@
       <div class="search-wrap">
         <span class="search-icon">🔍</span>
         <input class="search-input" id="searchInput" type="text"
-               placeholder="חיפוש לפי שם, מותג, מס׳ סידורי או מי שמחזיק..."
+               placeholder="חיפוש לפי שם, מק״ט, מותג, S/N או מי שמחזיק..."
                oninput="state.filters.q = this.value; renderEquipment();">
       </div>
       <select class="category-select" id="categoryFilter" onchange="state.filters.category = this.value; renderEquipment();">
@@ -111,8 +111,8 @@
       </div>
     </div>
     <div class="form-group">
-      <label class="form-label">מס׳ סידורי</label>
-      <input class="form-input" id="eqSerial" type="text" placeholder="אופציונלי">
+      <label class="form-label">מס׳ סידורי יצרן (S/N)</label>
+      <input class="form-input" id="eqSerial" type="text" placeholder="אופציונלי — מהמדבקה על המכשיר. מק״ט פנימי נוצר אוטומטית.">
     </div>
     <div class="form-group">
       <label class="form-label">הערות</label>
@@ -357,7 +357,7 @@ function filteredEquipment() {
     else if (status && eq.status !== status) return false;
     if (category && eq.category !== category) return false;
     if (needle) {
-      const hay = [eq.name, eq.brand, eq.serial, eq.holder, eq.project, eq.category]
+      const hay = [eq.name, eq.assetTag, eq.brand, eq.serial, eq.holder, eq.project, eq.category]
         .map(x => String(x || '').toLowerCase()).join(' ');
       if (!hay.includes(needle)) return false;
     }
@@ -433,6 +433,7 @@ function renderEquipment() {
 
     const meta = [eq.brand, eq.serial ? 'S/N ' + eq.serial : ''].filter(Boolean)
       .map(esc).join(' · ');
+    const tagPill = eq.assetTag ? `<span class="eq-tag">${esc(eq.assetTag)}</span>` : '';
 
     return `
       <div class="eq-card" style="animation-delay:${Math.min(i * 30, 300)}ms">
@@ -442,7 +443,7 @@ function renderEquipment() {
         </div>
         <div>
           <div class="eq-name">${esc(eq.name)}</div>
-          ${meta ? `<div class="eq-meta">${meta}</div>` : ''}
+          ${tagPill || meta ? `<div class="eq-meta">${tagPill}${meta ? `<span>${meta}</span>` : ''}</div>` : ''}
         </div>
         ${box}
         ${eq.notes ? `<div class="eq-notes">${esc(eq.notes)}</div>` : ''}
@@ -552,7 +553,7 @@ function openEditModal(id) {
   const eq = state.equipment.find(e => e.id === id);
   if (!eq) return;
   state.editingId = id;
-  document.getElementById('eqModalTitle').textContent = 'עריכת פריט';
+  document.getElementById('eqModalTitle').textContent = eq.assetTag ? 'עריכת פריט · ' + eq.assetTag : 'עריכת פריט';
   document.getElementById('eqName').value = eq.name;
   document.getElementById('eqCategory').value = eq.category || CONFIG.CATEGORIES[0].name;
   document.getElementById('eqBrand').value = eq.brand;
@@ -616,7 +617,7 @@ function openCheckoutModal(id) {
   if (!eq) return;
   state.actionId = id;
   document.getElementById('checkoutEqName').innerHTML =
-    `${catEmoji(eq.category)} ${esc(eq.name)}`;
+    `${catEmoji(eq.category)} ${esc(eq.name)}${eq.assetTag ? ` <span class="eq-tag">${esc(eq.assetTag)}</span>` : ''}`;
   document.getElementById('coPerson').value = '';
   document.getElementById('coProject').value = '';
   document.getElementById('coDueDate').value = '';
@@ -654,7 +655,7 @@ function openCheckinModal(id) {
   if (!eq) return;
   state.actionId = id;
   document.getElementById('checkinEqName').innerHTML =
-    `${catEmoji(eq.category)} ${esc(eq.name)} <span style="font-weight:400; color:var(--text-secondary);">· אצל ${esc(eq.holder)}</span>`;
+    `${catEmoji(eq.category)} ${esc(eq.name)}${eq.assetTag ? ` <span class="eq-tag">${esc(eq.assetTag)}</span>` : ''} <span style="font-weight:400; color:var(--text-secondary);">· אצל ${esc(eq.holder)}</span>`;
   document.getElementById('ciNotes').value = '';
   openModal('checkinModal');
 }
