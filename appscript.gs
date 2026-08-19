@@ -105,6 +105,46 @@ function newId() {
 }
 
 // ============================================================
+// SETTINGS + ADMIN (הרשאות)
+// Schema: key(0), value(1)
+// סיסמת האדמין נשמרת בגיליון settings בשורה adminPassword.
+// ברירת מחדל: 4242 — מומלץ לשנות ישירות בגיליון.
+// ============================================================
+
+const SETTINGS_HEADERS = ['key', 'value'];
+const DEFAULT_ADMIN_PASSWORD = '4242';
+
+function getSetting(key) {
+  const sheet = ensureSheet('settings', SETTINGS_HEADERS);
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === key) return String(data[i][1]);
+  }
+  return null;
+}
+
+function getAdminPassword() {
+  let pw = getSetting('adminPassword');
+  if (pw === null || pw === '') {
+    ensureSheet('settings', SETTINGS_HEADERS).appendRow(['adminPassword', DEFAULT_ADMIN_PASSWORD]);
+    pw = DEFAULT_ADMIN_PASSWORD;
+  }
+  return pw;
+}
+
+function isAdmin(key) {
+  return String(key || '') !== '' && String(key) === getAdminPassword();
+}
+
+// מחזיר אובייקט שגיאה אם אין הרשאה, או null אם הכל תקין
+function requireAdmin(p) {
+  if (!isAdmin(p.adminKey)) {
+    return { success: false, authRequired: true, message: 'רק אדמין יכול לבצע את הפעולה הזו' };
+  }
+  return null;
+}
+
+// ============================================================
 // TABLE: EQUIPMENT (ציוד)
 // Schema: id(0), name(1), category(2), brand(3), serial(4),
 //         notes(5), status(6), active(7), addedDate(8), assetTag(9)
@@ -419,19 +459,34 @@ function doPost(e) {
       case 'getDashboard':
         return jsonResponse(getDashboard());
 
-      // ── Equipment ─────────────────────────────────────────
-      case 'addEquipment':
+      // ── Auth ──────────────────────────────────────────────
+      case 'validateAdmin':
+        return jsonResponse(isAdmin(p.password)
+          ? { success: true, message: 'מצב אדמין פעיל' }
+          : { success: false, message: 'סיסמה שגויה' });
+
+      // ── Equipment (אדמין בלבד) ────────────────────────────
+      case 'addEquipment': {
+        const authErr = requireAdmin(p);
+        if (authErr) return jsonResponse(authErr);
         return jsonResponse(addEquipment({
           name: p.name, category: p.category, brand: p.brand,
           serial: p.serial, notes: p.notes
         }));
-      case 'updateEquipment':
+      }
+      case 'updateEquipment': {
+        const authErr = requireAdmin(p);
+        if (authErr) return jsonResponse(authErr);
         return jsonResponse(updateEquipment({
           id: p.id, name: p.name, category: p.category, brand: p.brand,
           serial: p.serial, notes: p.notes
         }));
-      case 'deleteEquipment':
+      }
+      case 'deleteEquipment': {
+        const authErr = requireAdmin(p);
+        if (authErr) return jsonResponse(authErr);
         return jsonResponse(deleteEquipment(p.id));
+      }
       case 'setEquipmentStatus':
         return jsonResponse(setEquipmentStatus(p.id, p.status));
 

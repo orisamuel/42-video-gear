@@ -12,8 +12,8 @@ const CONFIG = {
     SHEETS_URL: 'https://docs.google.com/spreadsheets/d/1Bw6zGoOiv8jvmAth1rPT6dgB4hnKi4mgypHFUPjVXgE/edit',
 
     // ── זהות האפליקציה ───────────────────────────────────────
-    APP_NAME:     'ציוד וידאו',
-    APP_SUBTITLE: 'מערכת מעקב והשאלות · מחלקת וידאו · 42',
+    APP_NAME:     'צילה',
+    APP_SUBTITLE: 'מערכת לניהול ציוד צילום · 42',
 
     // ── קטגוריות ציוד (אפשר להוסיף/לשנות בחופשיות) ──────────
     CATEGORIES: [

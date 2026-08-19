@@ -4,18 +4,40 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0A0A0B">
-<title>ציוד וידאו · 42</title>
+<title>צילה · ניהול ציוד צילום</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="styles.css">
 <script src="config.js"></script>
 <script src="utils.js"></script>
 </head>
 <body>
 
+<!-- דמות הלוגו של צילה — SVG משותף, נצבע דרך currentColor -->
+<svg width="0" height="0" style="position:absolute;" aria-hidden="true">
+  <defs>
+    <g id="tzila-mascot">
+      <path d="M20 17 v-3 a6 6 0 0 1 6-6 h6 a6 6 0 0 1 6 6 v3 z" fill="currentColor"/>
+      <rect x="4" y="16" width="56" height="41" rx="12" fill="currentColor"/>
+      <circle cx="29" cy="37" r="13" style="fill: var(--mascot-cut, #0A0A0B);"/>
+      <circle cx="29" cy="37" r="8.5" fill="currentColor"/>
+      <circle cx="32.4" cy="33.6" r="2.6" style="fill: var(--mascot-cut, #0A0A0B);"/>
+      <g stroke-width="2.6" stroke-linecap="round" fill="none" style="stroke: var(--mascot-cut, #0A0A0B);">
+        <path d="M20 22 L18 17.5"/>
+        <path d="M29 20.5 L29 16.5"/>
+        <path d="M38 22 L40 17.5"/>
+        <path d="M46 44 q4 4.5 8.5 0.5"/>
+      </g>
+      <circle cx="51" cy="25.5" r="3.2" fill="#F87171"/>
+    </g>
+  </defs>
+</svg>
+
 <!-- Loading screen -->
 <div class="loading-screen" id="loadingScreen">
-  <div class="loading-logo">42</div>
+  <svg class="mascot mascot-loading" viewBox="0 0 64 64"><use href="#tzila-mascot"/></svg>
+  <div class="loading-logo loading-name">צילה</div>
   <div class="loading-spinner"></div>
-  <div class="loading-progress" id="loadingProgress">טוען את הציוד...</div>
+  <div class="loading-progress" id="loadingProgress">טוענת את הציוד...</div>
 </div>
 
 <!-- Main content -->
@@ -23,15 +45,18 @@
 
   <header class="app-header">
     <div class="header-brand">
-      <div class="logo-42">42</div>
+      <div class="logo-42">
+        <svg class="mascot" viewBox="0 0 64 64"><use href="#tzila-mascot"/></svg>
+      </div>
       <div>
         <div class="app-title" id="appTitle"></div>
         <div class="app-subtitle" id="appSubtitle"></div>
       </div>
     </div>
     <div class="header-actions">
-      <button class="btn btn-primary" onclick="openAddModal()">+ פריט חדש</button>
+      <button class="btn btn-primary" id="addBtn" style="display:none;" onclick="openAddModal()">+ פריט חדש</button>
       <a class="btn btn-secondary" id="openSheetBtn" target="_blank" rel="noopener" style="display:none;">📊 הגיליון</a>
+      <button class="theme-toggle" id="adminToggle" title="כניסת אדמין" onclick="adminClick()">🔑</button>
       <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">☀️</button>
     </div>
   </header>
@@ -161,6 +186,25 @@
   </div>
 </div>
 
+<!-- ═══ Modal: admin login ═══ -->
+<div class="modal-backdrop" id="adminModal">
+  <div class="modal" style="max-width: 380px;">
+    <div class="modal-header">
+      <div class="modal-title">🔑 כניסת אדמין</div>
+      <button class="modal-close" onclick="closeModal('adminModal')">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">סיסמת אדמין</label>
+      <input class="form-input" id="adminPass" type="password" autocomplete="off"
+             onkeydown="if (event.key === 'Enter') submitAdmin();">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" id="adminSubmitBtn" onclick="submitAdmin()">כניסה</button>
+      <button class="btn btn-secondary" onclick="closeModal('adminModal')">ביטול</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══ Modal: check-in (החזרה) ═══ -->
 <div class="modal-backdrop" id="checkinModal">
   <div class="modal">
@@ -193,6 +237,7 @@ const state = {
   filters: { q: '', status: '', category: '', hq: '', hstatus: '' },
   editingId: null,     // id בעריכה (null = פריט חדש)
   actionId: null,      // id של פריט בהשאלה/החזרה
+  adminKey: localStorage.getItem('tzila-admin-key') || '',
 };
 
 // ════════════════════════════════════════════════════════════
@@ -234,9 +279,63 @@ initTheme();
 document.getElementById('appTitle').textContent    = CONFIG.APP_NAME;
 document.getElementById('appSubtitle').textContent = CONFIG.APP_SUBTITLE;
 if (CONFIG.SHEETS_URL && !CONFIG.SHEETS_URL.includes('PASTE_')) {
-  const b = document.getElementById('openSheetBtn');
-  b.href = CONFIG.SHEETS_URL; b.style.display = '';
+  document.getElementById('openSheetBtn').href = CONFIG.SHEETS_URL;
 }
+
+// ════════════════════════════════════════════════════════════
+// Admin (הרשאות) — רק אדמין מוסיף/עורך/מוחק ציוד
+// ════════════════════════════════════════════════════════════
+function isAdminMode() { return !!state.adminKey; }
+
+function updateAdminUI() {
+  document.getElementById('addBtn').style.display = isAdminMode() ? '' : 'none';
+  const sheetBtn = document.getElementById('openSheetBtn');
+  sheetBtn.style.display =
+    (isAdminMode() && sheetBtn.getAttribute('href') && !sheetBtn.getAttribute('href').includes('PASTE_')) ? '' : 'none';
+  const t = document.getElementById('adminToggle');
+  t.textContent = isAdminMode() ? '🔓' : '🔑';
+  t.title = isAdminMode() ? 'מחובר כאדמין — לחיצה ליציאה' : 'כניסת אדמין';
+}
+
+function clearAdmin() {
+  state.adminKey = '';
+  localStorage.removeItem('tzila-admin-key');
+  updateAdminUI();
+  renderEquipment();
+}
+
+function adminClick() {
+  if (isAdminMode()) {
+    if (confirm('לצאת ממצב אדמין?')) { clearAdmin(); showToast('יצאת ממצב אדמין', 'info'); }
+  } else {
+    document.getElementById('adminPass').value = '';
+    openModal('adminModal');
+    setTimeout(() => document.getElementById('adminPass').focus(), 50);
+  }
+}
+
+async function submitAdmin() {
+  const pw = document.getElementById('adminPass').value.trim();
+  if (!pw) return;
+  const btn = document.getElementById('adminSubmitBtn');
+  setBtnLoading(btn, true);
+  try {
+    const res = await apiCall('validateAdmin', { password: pw });
+    if (!res.success) { showToast(res.message || 'סיסמה שגויה', 'warning'); return; }
+    state.adminKey = pw;
+    localStorage.setItem('tzila-admin-key', pw);
+    closeModal('adminModal');
+    showToast('מצב אדמין פעיל 🔓', 'success');
+    updateAdminUI();
+    renderEquipment();
+  } catch (e) {
+    showToast(e.message, 'error');
+  } finally {
+    setBtnLoading(btn, false, 'כניסה');
+  }
+}
+
+updateAdminUI();
 // select הקטגוריות (סינון + טופס)
 (function initCategories() {
   const filter = document.getElementById('categoryFilter');
@@ -382,8 +481,10 @@ function renderEquipment() {
       <div class="empty-state">
         <div class="empty-emoji">🎬</div>
         <div class="empty-title">עוד אין ציוד במערכת</div>
-        <p>מוסיפים פריט ראשון ומתחילים לעקוב.</p>
-        <button class="btn btn-primary" style="margin-top:16px;" onclick="openAddModal()">+ פריט חדש</button>
+        <p>${isAdminMode()
+            ? 'מוסיפים פריט ראשון ומתחילים לעקוב.'
+            : 'רק אדמין יכול להוסיף ציוד — נכנסים דרך ה-🔑 למעלה.'}</p>
+        ${isAdminMode() ? '<button class="btn btn-primary" style="margin-top:16px;" onclick="openAddModal()">+ פריט חדש</button>' : ''}
       </div>`;
     return;
   }
@@ -399,6 +500,9 @@ function renderEquipment() {
 
   grid.innerHTML = list.map((eq, i) => {
     const overdue = isOverdue(eq);
+    const editBtn = isAdminMode()
+      ? `<button class="btn-icon" title="עריכה" onclick="openEditModal('${eq.id}')">✏️</button>`
+      : '';
     let badge, box = '', actions;
 
     if (eq.status === ST.OUT) {
@@ -416,19 +520,19 @@ function renderEquipment() {
         </div>`;
       actions = `
         <button class="btn btn-success" onclick="openCheckinModal('${eq.id}')">↩ החזרה</button>
-        <button class="btn-icon" title="עריכה" onclick="openEditModal('${eq.id}')">✏️</button>`;
+        ${editBtn}`;
     } else if (eq.status === ST.REPAIR) {
       badge = `<span class="badge badge-repair">בתיקון</span>`;
       box = `<div class="repair-box">🔧 הפריט בתיקון ולא זמין להשאלה</div>`;
       actions = `
         <button class="btn btn-secondary" onclick="finishRepair('${eq.id}')">✓ סיום תיקון</button>
-        <button class="btn-icon" title="עריכה" onclick="openEditModal('${eq.id}')">✏️</button>`;
+        ${editBtn}`;
     } else {
       badge = `<span class="badge badge-available">זמין</span>`;
       actions = `
         <button class="btn btn-primary" onclick="openCheckoutModal('${eq.id}')">← השאלה</button>
         <button class="btn-icon" title="שליחה לתיקון" onclick="sendToRepair('${eq.id}')">🔧</button>
-        <button class="btn-icon" title="עריכה" onclick="openEditModal('${eq.id}')">✏️</button>`;
+        ${editBtn}`;
     }
 
     const meta = [eq.brand, eq.serial ? 'S/N ' + eq.serial : ''].filter(Boolean)
@@ -572,6 +676,7 @@ async function submitEquipment() {
     brand:    document.getElementById('eqBrand').value.trim(),
     serial:   document.getElementById('eqSerial').value.trim(),
     notes:    document.getElementById('eqNotes').value.trim(),
+    adminKey: state.adminKey,
   };
   const btn = document.getElementById('eqSaveBtn');
   setBtnLoading(btn, true);
@@ -579,7 +684,7 @@ async function submitEquipment() {
     const res = state.editingId
       ? await apiCall('updateEquipment', { id: state.editingId, ...params })
       : await apiCall('addEquipment', params);
-    if (!res.success) throw new Error(res.message);
+    if (!res.success) { if (res.authRequired) { clearAdmin(); closeModal('eqModal'); } throw new Error(res.message); }
     closeModal('eqModal');
     showToast(res.message || 'נשמר!', 'success');
     await refresh();
@@ -597,8 +702,8 @@ async function removeEquipment() {
   const btn = document.getElementById('eqDeleteBtn');
   setBtnLoading(btn, true);
   try {
-    const res = await apiCall('deleteEquipment', { id: state.editingId });
-    if (!res.success) throw new Error(res.message);
+    const res = await apiCall('deleteEquipment', { id: state.editingId, adminKey: state.adminKey });
+    if (!res.success) { if (res.authRequired) { clearAdmin(); closeModal('eqModal'); } throw new Error(res.message); }
     closeModal('eqModal');
     showToast(res.message, 'success');
     await refresh();

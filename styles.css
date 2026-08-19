@@ -155,6 +155,18 @@ button { cursor: pointer; font-family: inherit; border: none; outline: none; }
   font-size: 1.5rem; font-weight: 900; letter-spacing: -0.05em;
   box-shadow: var(--shadow-sm);
 }
+/* דמות צילה 📷 — נצבעת לפי הקונטקסט: currentColor לגוף, --mascot-cut לחיתוכים */
+.logo-42 .mascot {
+  width: 38px; height: 38px;
+  --mascot-cut: var(--accent);
+}
+.mascot-loading {
+  width: 92px; height: 92px;
+  color: var(--text-primary);
+  --mascot-cut: var(--bg-base);
+  animation: pulse42 1.4s ease-in-out infinite;
+}
+.loading-name { font-size: 2.4rem; margin-top: 6px; }
 .app-title {
   font-size: 1.7rem; font-weight: 900; letter-spacing: -0.02em;
   color: var(--text-primary); line-height: 1.1;
