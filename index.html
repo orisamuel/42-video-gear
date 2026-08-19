@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0A0A0B">
+<title>ציוד וידאו · 42</title>
+<link rel="stylesheet" href="styles.css">
+<script src="config.js"></script>
+<script src="utils.js"></script>
+</head>
+<body>
+
+<!-- Loading screen -->
+<div class="loading-screen" id="loadingScreen">
+  <div class="loading-logo">42</div>
+  <div class="loading-spinner"></div>
+  <div class="loading-progress" id="loadingProgress">טוען את הציוד...</div>
+</div>
+
+<!-- Main content -->
+<div id="mainContent">
+
+  <header class="app-header">
+    <div class="header-brand">
+      <div class="logo-42">42</div>
+      <div>
+        <div class="app-title" id="appTitle"></div>
+        <div class="app-subtitle" id="appSubtitle"></div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-primary" onclick="openAddModal()">+ פריט חדש</button>
+      <a class="btn btn-secondary" id="openSheetBtn" target="_blank" rel="noopener" style="display:none;">📊 הגיליון</a>
+      <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">☀️</button>
+    </div>
+  </header>
+
+  <!-- Stats -->
+  <section class="stats-row" id="statsRow"></section>
+
+  <!-- Tabs -->
+  <nav class="tabs">
+    <button class="tab active" id="tabEquipment" onclick="switchTab('equipment')">הציוד</button>
+    <button class="tab" id="tabHistory" onclick="switchTab('history')">היסטוריה</button>
+  </nav>
+
+  <!-- ═══ Equipment view ═══ -->
+  <section id="equipmentView">
+    <div class="toolbar">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input class="search-input" id="searchInput" type="text"
+               placeholder="חיפוש לפי שם, מותג, מס׳ סידורי או מי שמחזיק..."
+               oninput="state.filters.q = this.value; renderEquipment();">
+      </div>
+      <select class="category-select" id="categoryFilter" onchange="state.filters.category = this.value; renderEquipment();">
+        <option value="">כל הקטגוריות</option>
+      </select>
+      <div class="chips" id="statusChips"></div>
+    </div>
+    <div class="equipment-grid" id="equipmentGrid"></div>
+  </section>
+
+  <!-- ═══ History view ═══ -->
+  <section id="historyView" style="display:none;">
+    <div class="toolbar">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input class="search-input" id="historySearch" type="text"
+               placeholder="חיפוש בהיסטוריה — פריט, שם או פרויקט..."
+               oninput="state.filters.hq = this.value; renderHistory();">
+      </div>
+      <div class="chips" id="historyChips"></div>
+    </div>
+    <div class="table-wrap">
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th>פריט</th><th>אצל מי</th><th>פרויקט</th>
+            <th>נלקח</th><th>להחזרה עד</th><th>הוחזר</th>
+            <th>סטטוס</th><th>הערות</th>
+          </tr>
+        </thead>
+        <tbody id="historyBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+</div>
+
+<!-- ═══ Modal: add / edit equipment ═══ -->
+<div class="modal-backdrop" id="eqModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="eqModalTitle">פריט חדש</div>
+      <button class="modal-close" onclick="closeModal('eqModal')">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">שם הפריט <span class="req">*</span></label>
+      <input class="form-input" id="eqName" type="text" placeholder='למשל: Sony FX3'>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">קטגוריה</label>
+        <select class="form-select" id="eqCategory"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">מותג</label>
+        <input class="form-input" id="eqBrand" type="text" placeholder="Sony / DJI / Aputure...">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">מס׳ סידורי</label>
+      <input class="form-input" id="eqSerial" type="text" placeholder="אופציונלי">
+    </div>
+    <div class="form-group">
+      <label class="form-label">הערות</label>
+      <textarea class="form-textarea" id="eqNotes" rows="2" placeholder="מצב, אביזרים נלווים, כל דבר שכדאי לדעת..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" id="eqSaveBtn" onclick="submitEquipment()">שמירה</button>
+      <button class="btn btn-secondary" onclick="closeModal('eqModal')">ביטול</button>
+      <button class="btn btn-danger" id="eqDeleteBtn" style="margin-inline-start:auto; display:none;" onclick="removeEquipment()">מחיקה</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Modal: checkout (השאלה) ═══ -->
+<div class="modal-backdrop" id="checkoutModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">השאלת ציוד</div>
+      <button class="modal-close" onclick="closeModal('checkoutModal')">✕</button>
+    </div>
+    <div class="modal-eq-name" id="checkoutEqName"></div>
+    <div class="form-group">
+      <label class="form-label">מי לוקח? <span class="req">*</span></label>
+      <input class="form-input" id="coPerson" type="text" list="personsList" placeholder="שם מלא">
+      <datalist id="personsList"></datalist>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">פרויקט / צילום</label>
+        <input class="form-input" id="coProject" type="text" list="projectsList" placeholder="אופציונלי">
+        <datalist id="projectsList"></datalist>
+      </div>
+      <div class="form-group">
+        <label class="form-label">להחזרה עד</label>
+        <input class="form-input" id="coDueDate" type="date">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">הערות</label>
+      <input class="form-input" id="coNotes" type="text" placeholder="אופציונלי">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" id="coSubmitBtn" onclick="submitCheckout()">אישור השאלה</button>
+      <button class="btn btn-secondary" onclick="closeModal('checkoutModal')">ביטול</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Modal: check-in (החזרה) ═══ -->
+<div class="modal-backdrop" id="checkinModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">החזרת ציוד</div>
+      <button class="modal-close" onclick="closeModal('checkinModal')">✕</button>
+    </div>
+    <div class="modal-eq-name" id="checkinEqName"></div>
+    <div class="form-group">
+      <label class="form-label">הערות החזרה (מצב הציוד וכו׳)</label>
+      <input class="form-input" id="ciNotes" type="text" placeholder="אופציונלי">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-success" id="ciSubmitBtn" onclick="submitCheckin()">✓ אישור החזרה</button>
+      <button class="btn btn-secondary" onclick="closeModal('checkinModal')">ביטול</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+// State
+// ════════════════════════════════════════════════════════════
+const ST = CONFIG.STATUS;
+const state = {
+  equipment: [],
+  history: [],
+  persons: [],
+  projects: [],
+  filters: { q: '', status: '', category: '', hq: '', hstatus: '' },
+  editingId: null,     // id בעריכה (null = פריט חדש)
+  actionId: null,      // id של פריט בהשאלה/החזרה
+};
+
+// ════════════════════════════════════════════════════════════
+// Helpers
+// ════════════════════════════════════════════════════════════
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function catEmoji(name) {
+  const c = CONFIG.CATEGORIES.find(c => c.name === name);
+  return c ? c.emoji : '📦';
+}
+function parseHebDate(s) {
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(s || ''));
+  if (!m) return null;
+  return new Date(+m[3], +m[2] - 1, +m[1]);
+}
+function isoToHeb(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : '';
+}
+function isOverdue(eq) {
+  if (eq.status !== ST.OUT || !eq.dueDate) return false;
+  const due = parseHebDate(eq.dueDate);
+  if (!due) return false;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  return due < today;
+}
+function setBtnLoading(btn, loading, textWhenDone) {
+  if (loading) { btn.dataset.txt = btn.textContent; btn.disabled = true; btn.textContent = 'רגע...'; }
+  else { btn.disabled = false; btn.textContent = textWhenDone || btn.dataset.txt || btn.textContent; }
+}
+
+// ════════════════════════════════════════════════════════════
+// Init
+// ════════════════════════════════════════════════════════════
+initTheme();
+document.getElementById('appTitle').textContent    = CONFIG.APP_NAME;
+document.getElementById('appSubtitle').textContent = CONFIG.APP_SUBTITLE;
+if (CONFIG.SHEETS_URL && !CONFIG.SHEETS_URL.includes('PASTE_')) {
+  const b = document.getElementById('openSheetBtn');
+  b.href = CONFIG.SHEETS_URL; b.style.display = '';
+}
+// select הקטגוריות (סינון + טופס)
+(function initCategories() {
+  const filter = document.getElementById('categoryFilter');
+  const formSel = document.getElementById('eqCategory');
+  CONFIG.CATEGORIES.forEach(c => {
+    filter.insertAdjacentHTML('beforeend', `<option value="${esc(c.name)}">${c.emoji} ${esc(c.name)}</option>`);
+    formSel.insertAdjacentHTML('beforeend', `<option value="${esc(c.name)}">${c.emoji} ${esc(c.name)}</option>`);
+  });
+})();
+
+warmupServer();
+
+(async function init() {
+  try {
+    await refresh(false);
+  } catch (e) {
+    const grid = document.getElementById('equipmentGrid');
+    const isConfig = String(e.message).includes('SCRIPT_URL');
+    grid.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-emoji">${isConfig ? '🔌' : '⚠️'}</div>
+        <div class="empty-title">${isConfig ? 'המערכת עוד לא מחוברת לגיליון' : 'שגיאה בטעינה'}</div>
+        <p>${isConfig
+            ? 'צריך להדביק את כתובת ה-Apps Script בקובץ config.js — ההוראות המלאות ב-README.md'
+            : esc(e.message)}</p>
+      </div>`;
+    renderStats();
+    renderStatusChips();
+    renderHistoryChips();
+  } finally {
+    hideLoadingScreen();
+  }
+})();
+
+async function refresh(silent = true) {
+  const res = await apiCall('getDashboard');
+  if (!res.success) throw new Error(res.message || 'שגיאה בשרת');
+  state.equipment = res.equipment || [];
+  state.history   = res.history || [];
+  state.persons   = res.persons || [];
+  state.projects  = res.projects || [];
+  renderAll();
+  if (!silent) updateLoadingProgress('מוכן!');
+}
+
+function renderAll() {
+  renderStats();
+  renderStatusChips();
+  renderEquipment();
+  renderHistoryChips();
+  renderHistory();
+  renderDatalists();
+}
+
+// ════════════════════════════════════════════════════════════
+// Tabs
+// ════════════════════════════════════════════════════════════
+function switchTab(tab) {
+  const isEq = tab === 'equipment';
+  document.getElementById('tabEquipment').classList.toggle('active', isEq);
+  document.getElementById('tabHistory').classList.toggle('active', !isEq);
+  document.getElementById('equipmentView').style.display = isEq ? '' : 'none';
+  document.getElementById('historyView').style.display   = isEq ? 'none' : '';
+}
+
+// ════════════════════════════════════════════════════════════
+// Stats
+// ════════════════════════════════════════════════════════════
+function renderStats() {
+  const eq = state.equipment;
+  const out     = eq.filter(e => e.status === ST.OUT);
+  const overdue = eq.filter(isOverdue).length;
+  const stats = [
+    { key: '',           label: 'סה״כ פריטים', value: eq.length, dot: 'dot-neutral' },
+    { key: ST.AVAILABLE, label: 'זמינים',       value: eq.filter(e => e.status === ST.AVAILABLE).length, dot: 'dot-success' },
+    { key: ST.OUT,       label: overdue ? `מושאלים · ${overdue} באיחור` : 'מושאלים', value: out.length, dot: 'dot-warning' },
+    { key: ST.REPAIR,    label: 'בתיקון',       value: eq.filter(e => e.status === ST.REPAIR).length, dot: 'dot-danger' },
+  ];
+  document.getElementById('statsRow').innerHTML = stats.map(s => `
+    <div class="stat-card ${state.filters.status === s.key && s.key !== '' ? 'active' : ''}"
+         onclick="setStatusFilter('${s.key}')">
+      <span class="stat-dot ${s.dot}"></span>
+      <div class="stat-value">${s.value}</div>
+      <div class="stat-label">${s.label}</div>
+    </div>`).join('');
+}
+
+// ════════════════════════════════════════════════════════════
+// Equipment
+// ════════════════════════════════════════════════════════════
+const STATUS_CHIPS = [
+  { key: '',           label: 'הכל' },
+  { key: ST.AVAILABLE, label: 'זמין' },
+  { key: ST.OUT,       label: 'מושאל' },
+  { key: 'overdue',    label: 'באיחור' },
+  { key: ST.REPAIR,    label: 'בתיקון' },
+];
+
+function renderStatusChips() {
+  document.getElementById('statusChips').innerHTML = STATUS_CHIPS.map(c => `
+    <button class="chip ${state.filters.status === c.key ? 'active' : ''}"
+            onclick="setStatusFilter('${c.key}')">${c.label}</button>`).join('');
+}
+
+function setStatusFilter(key) {
+  state.filters.status = (state.filters.status === key) ? '' : key;
+  renderStatusChips();
+  renderStats();
+  renderEquipment();
+  switchTab('equipment');
+}
+
+function filteredEquipment() {
+  const { q, status, category } = state.filters;
+  const needle = q.trim().toLowerCase();
+  return state.equipment.filter(eq => {
+    if (status === 'overdue') { if (!isOverdue(eq)) return false; }
+    else if (status && eq.status !== status) return false;
+    if (category && eq.category !== category) return false;
+    if (needle) {
+      const hay = [eq.name, eq.brand, eq.serial, eq.holder, eq.project, eq.category]
+        .map(x => String(x || '').toLowerCase()).join(' ');
+      if (!hay.includes(needle)) return false;
+    }
+    return true;
+  });
+}
+
+function statusPriority(eq) {
+  if (isOverdue(eq)) return 0;
+  if (eq.status === ST.OUT) return 1;
+  if (eq.status === ST.REPAIR) return 2;
+  return 3;
+}
+
+function renderEquipment() {
+  const grid = document.getElementById('equipmentGrid');
+  const list = filteredEquipment().sort((a, b) =>
+    statusPriority(a) - statusPriority(b) || a.name.localeCompare(b.name, 'he'));
+
+  if (!state.equipment.length) {
+    grid.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-emoji">🎬</div>
+        <div class="empty-title">עוד אין ציוד במערכת</div>
+        <p>מוסיפים פריט ראשון ומתחילים לעקוב.</p>
+        <button class="btn btn-primary" style="margin-top:16px;" onclick="openAddModal()">+ פריט חדש</button>
+      </div>`;
+    return;
+  }
+  if (!list.length) {
+    grid.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-emoji">🤷</div>
+        <div class="empty-title">לא נמצא כלום</div>
+        <p>נסו חיפוש אחר או נקו את הסינון.</p>
+      </div>`;
+    return;
+  }
+
+  grid.innerHTML = list.map((eq, i) => {
+    const overdue = isOverdue(eq);
+    let badge, box = '', actions;
+
+    if (eq.status === ST.OUT) {
+      badge = overdue
+        ? `<span class="badge badge-overdue">באיחור</span>`
+        : `<span class="badge badge-out">מושאל</span>`;
+      box = `
+        <div class="holder-box ${overdue ? 'overdue' : ''}">
+          <span class="holder-name">אצל ${esc(eq.holder)}</span>
+          <div class="holder-detail">
+            מאז ${esc(eq.holderSince)}${eq.holderTime ? ' · ' + esc(eq.holderTime) : ''}
+            ${eq.dueDate ? ' · להחזרה עד ' + esc(eq.dueDate) : ''}
+            ${eq.project ? ' · ' + esc(eq.project) : ''}
+          </div>
+        </div>`;
+      actions = `
+        <button class="btn btn-success" onclick="openCheckinModal('${eq.id}')">↩ החזרה</button>
+        <button class="btn-icon" title="עריכה" onclick="openEditModal('${eq.id}')">✏️</button>`;
+    } else if (eq.status === ST.REPAIR) {
+      badge = `<span class="badge badge-repair">בתיקון</span>`;
+      box = `<div class="repair-box">🔧 הפריט בתיקון ולא זמין להשאלה</div>`;
+      actions = `
+        <button class="btn btn-secondary" onclick="finishRepair('${eq.id}')">✓ סיום תיקון</button>
+        <button class="btn-icon" title="עריכה" onclick="openEditModal('${eq.id}')">✏️</button>`;
+    } else {
+      badge = `<span class="badge badge-available">זמין</span>`;
+      actions = `
+        <button class="btn btn-primary" onclick="openCheckoutModal('${eq.id}')">← השאלה</button>
+        <button class="btn-icon" title="שליחה לתיקון" onclick="sendToRepair('${eq.id}')">🔧</button>
+        <button class="btn-icon" title="עריכה" onclick="openEditModal('${eq.id}')">✏️</button>`;
+    }
+
+    const meta = [eq.brand, eq.serial ? 'S/N ' + eq.serial : ''].filter(Boolean)
+      .map(esc).join(' · ');
+
+    return `
+      <div class="eq-card" style="animation-delay:${Math.min(i * 30, 300)}ms">
+        <div class="eq-card-top">
+          <span class="eq-category">${catEmoji(eq.category)} ${esc(eq.category)}</span>
+          ${badge}
+        </div>
+        <div>
+          <div class="eq-name">${esc(eq.name)}</div>
+          ${meta ? `<div class="eq-meta">${meta}</div>` : ''}
+        </div>
+        ${box}
+        ${eq.notes ? `<div class="eq-notes">${esc(eq.notes)}</div>` : ''}
+        <div class="eq-actions">${actions}</div>
+        <button class="eq-history-link" onclick="showItemHistory('${eq.id}')">היסטוריית הפריט ←</button>
+      </div>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════════════════════
+// History
+// ════════════════════════════════════════════════════════════
+const HISTORY_CHIPS = [
+  { key: '',       label: 'הכל' },
+  { key: 'פתוח',   label: 'השאלות פתוחות' },
+  { key: 'הוחזר',  label: 'הוחזרו' },
+];
+
+function renderHistoryChips() {
+  document.getElementById('historyChips').innerHTML = HISTORY_CHIPS.map(c => `
+    <button class="chip ${state.filters.hstatus === c.key ? 'active' : ''}"
+            onclick="state.filters.hstatus = (state.filters.hstatus === '${c.key}') ? '' : '${c.key}'; renderHistoryChips(); renderHistory();">
+      ${c.label}</button>`).join('');
+}
+
+function renderHistory() {
+  const tbody = document.getElementById('historyBody');
+  const needle = state.filters.hq.trim().toLowerCase();
+  const rows = state.history.filter(h => {
+    if (state.filters.hstatus && h.status !== state.filters.hstatus) return false;
+    if (needle) {
+      const hay = [h.equipmentName, h.person, h.project, h.notes]
+        .map(x => String(x || '').toLowerCase()).join(' ');
+      if (!hay.includes(needle)) return false;
+    }
+    return true;
+  });
+
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:40px; color:var(--text-muted);">
+      אין רשומות להצגה</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map(h => {
+    const open = h.status === 'פתוח';
+    return `
+      <tr>
+        <td style="font-weight:700;">${esc(h.equipmentName)}</td>
+        <td>${esc(h.person)}</td>
+        <td>${esc(h.project) || '<span style="color:var(--text-muted)">—</span>'}</td>
+        <td style="white-space:nowrap;">${esc(h.checkoutDate)}${h.checkoutTime ? ' · ' + esc(h.checkoutTime) : ''}</td>
+        <td style="white-space:nowrap;">${esc(h.dueDate) || '<span style="color:var(--text-muted)">—</span>'}</td>
+        <td style="white-space:nowrap;">${h.returnDate ? esc(h.returnDate) + (h.returnTime ? ' · ' + esc(h.returnTime) : '') : '<span style="color:var(--text-muted)">—</span>'}</td>
+        <td><span class="badge ${open ? 'badge-open' : 'badge-returned'}">${esc(h.status)}</span></td>
+        <td style="max-width:220px; font-size:0.82rem; color:var(--text-secondary);">${esc(h.notes) || ''}</td>
+      </tr>`;
+  }).join('');
+}
+
+function showItemHistory(id) {
+  const eq = state.equipment.find(e => e.id === id);
+  const name = eq ? eq.name : '';
+  state.filters.hq = name;
+  document.getElementById('historySearch').value = name;
+  renderHistory();
+  switchTab('history');
+}
+
+function renderDatalists() {
+  document.getElementById('personsList').innerHTML =
+    state.persons.map(p => `<option value="${esc(p)}">`).join('');
+  document.getElementById('projectsList').innerHTML =
+    state.projects.map(p => `<option value="${esc(p)}">`).join('');
+}
+
+// ════════════════════════════════════════════════════════════
+// Modals — generic
+// ════════════════════════════════════════════════════════════
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-backdrop').forEach(bd => {
+  bd.addEventListener('click', e => { if (e.target === bd) bd.classList.remove('open'); });
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop.open')
+    .forEach(m => m.classList.remove('open'));
+});
+
+// ════════════════════════════════════════════════════════════
+// Add / Edit equipment
+// ════════════════════════════════════════════════════════════
+function openAddModal() {
+  state.editingId = null;
+  document.getElementById('eqModalTitle').textContent = 'פריט חדש';
+  document.getElementById('eqName').value = '';
+  document.getElementById('eqCategory').value = CONFIG.CATEGORIES[0].name;
+  document.getElementById('eqBrand').value = '';
+  document.getElementById('eqSerial').value = '';
+  document.getElementById('eqNotes').value = '';
+  document.getElementById('eqDeleteBtn').style.display = 'none';
+  openModal('eqModal');
+  setTimeout(() => document.getElementById('eqName').focus(), 50);
+}
+
+function openEditModal(id) {
+  const eq = state.equipment.find(e => e.id === id);
+  if (!eq) return;
+  state.editingId = id;
+  document.getElementById('eqModalTitle').textContent = 'עריכת פריט';
+  document.getElementById('eqName').value = eq.name;
+  document.getElementById('eqCategory').value = eq.category || CONFIG.CATEGORIES[0].name;
+  document.getElementById('eqBrand').value = eq.brand;
+  document.getElementById('eqSerial').value = eq.serial;
+  document.getElementById('eqNotes').value = eq.notes;
+  document.getElementById('eqDeleteBtn').style.display = '';
+  openModal('eqModal');
+}
+
+async function submitEquipment() {
+  const name = document.getElementById('eqName').value.trim();
+  if (!name) { showToast('חסר שם פריט', 'warning'); return; }
+  const params = {
+    name,
+    category: document.getElementById('eqCategory').value,
+    brand:    document.getElementById('eqBrand').value.trim(),
+    serial:   document.getElementById('eqSerial').value.trim(),
+    notes:    document.getElementById('eqNotes').value.trim(),
+  };
+  const btn = document.getElementById('eqSaveBtn');
+  setBtnLoading(btn, true);
+  try {
+    const res = state.editingId
+      ? await apiCall('updateEquipment', { id: state.editingId, ...params })
+      : await apiCall('addEquipment', params);
+    if (!res.success) throw new Error(res.message);
+    closeModal('eqModal');
+    showToast(res.message || 'נשמר!', 'success');
+    await refresh();
+  } catch (e) {
+    showToast(e.message, 'error');
+  } finally {
+    setBtnLoading(btn, false, 'שמירה');
+  }
+}
+
+async function removeEquipment() {
+  const eq = state.equipment.find(e => e.id === state.editingId);
+  if (!eq) return;
+  if (!confirm(`למחוק את "${eq.name}" מהמערכת?\n(ההיסטוריה שלו נשמרת בגיליון)`)) return;
+  const btn = document.getElementById('eqDeleteBtn');
+  setBtnLoading(btn, true);
+  try {
+    const res = await apiCall('deleteEquipment', { id: state.editingId });
+    if (!res.success) throw new Error(res.message);
+    closeModal('eqModal');
+    showToast(res.message, 'success');
+    await refresh();
+  } catch (e) {
+    showToast(e.message, 'error');
+  } finally {
+    setBtnLoading(btn, false, 'מחיקה');
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// Checkout / Check-in
+// ════════════════════════════════════════════════════════════
+function openCheckoutModal(id) {
+  const eq = state.equipment.find(e => e.id === id);
+  if (!eq) return;
+  state.actionId = id;
+  document.getElementById('checkoutEqName').innerHTML =
+    `${catEmoji(eq.category)} ${esc(eq.name)}`;
+  document.getElementById('coPerson').value = '';
+  document.getElementById('coProject').value = '';
+  document.getElementById('coDueDate').value = '';
+  document.getElementById('coNotes').value = '';
+  openModal('checkoutModal');
+  setTimeout(() => document.getElementById('coPerson').focus(), 50);
+}
+
+async function submitCheckout() {
+  const person = document.getElementById('coPerson').value.trim();
+  if (!person) { showToast('מי לוקח את הציוד? חסר שם', 'warning'); return; }
+  const btn = document.getElementById('coSubmitBtn');
+  setBtnLoading(btn, true);
+  try {
+    const res = await apiCall('checkoutEquipment', {
+      equipmentId: state.actionId,
+      person,
+      project: document.getElementById('coProject').value.trim(),
+      dueDate: isoToHeb(document.getElementById('coDueDate').value),
+      notes:   document.getElementById('coNotes').value.trim(),
+    });
+    if (!res.success) throw new Error(res.message);
+    closeModal('checkoutModal');
+    showToast(res.message, 'success');
+    await refresh();
+  } catch (e) {
+    showToast(e.message, 'error');
+  } finally {
+    setBtnLoading(btn, false, 'אישור השאלה');
+  }
+}
+
+function openCheckinModal(id) {
+  const eq = state.equipment.find(e => e.id === id);
+  if (!eq) return;
+  state.actionId = id;
+  document.getElementById('checkinEqName').innerHTML =
+    `${catEmoji(eq.category)} ${esc(eq.name)} <span style="font-weight:400; color:var(--text-secondary);">· אצל ${esc(eq.holder)}</span>`;
+  document.getElementById('ciNotes').value = '';
+  openModal('checkinModal');
+}
+
+async function submitCheckin() {
+  const btn = document.getElementById('ciSubmitBtn');
+  setBtnLoading(btn, true);
+  try {
+    const res = await apiCall('checkinEquipment', {
+      equipmentId: state.actionId,
+      notes: document.getElementById('ciNotes').value.trim(),
+    });
+    if (!res.success) throw new Error(res.message);
+    closeModal('checkinModal');
+    showToast(res.message, 'success');
+    await refresh();
+  } catch (e) {
+    showToast(e.message, 'error');
+  } finally {
+    setBtnLoading(btn, false, '✓ אישור החזרה');
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// Repair status
+// ════════════════════════════════════════════════════════════
+async function sendToRepair(id) {
+  const eq = state.equipment.find(e => e.id === id);
+  if (!eq || !confirm(`לסמן את "${eq.name}" כנמצא בתיקון?`)) return;
+  try {
+    const res = await apiCall('setEquipmentStatus', { id, status: ST.REPAIR });
+    if (!res.success) throw new Error(res.message);
+    showToast(res.message, 'success');
+    await refresh();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function finishRepair(id) {
+  const eq = state.equipment.find(e => e.id === id);
+  if (!eq || !confirm(`"${eq.name}" חזר מתיקון וזמין שוב?`)) return;
+  try {
+    const res = await apiCall('setEquipmentStatus', { id, status: ST.AVAILABLE });
+    if (!res.success) throw new Error(res.message);
+    showToast(res.message, 'success');
+    await refresh();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+</script>
+
+</body>
+</html>
