@@ -2,6 +2,16 @@
 
 מערכת מעקב והשאלות ציוד למחלקת הוידאו — מי לקח מה, מתי, ולאיזה פרויקט.
 
+## 🔗 קישורים חיים
+
+| מה | איפה |
+|---|---|
+| **האפליקציה** | https://orisamuel.github.io/42-video-gear/ |
+| **הדאטהבייס (Google Sheet)** | https://docs.google.com/spreadsheets/d/1Bw6zGoOiv8jvmAth1rPT6dgB4hnKi4mgypHFUPjVXgE/edit |
+| **הבאקאנד (Apps Script)** | https://script.google.com/home/projects/1gwi2lpMyxrQY0LymVL6gVCARh98E2odBsts-781ZXzuU4i7Ixc6M6pMa/edit |
+
+הכל רץ תחת החשבון ori@42creative.co.il. ההתקנה כבר בוצעה — ההוראות למטה נשמרות לתיעוד ולשחזור עתידי.
+
 ## הסטאק
 
 - **פרונטאנד:** HTML/JS/CSS ונילה, בלי build — פשוט פותחים את `index.html`
