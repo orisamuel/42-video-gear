@@ -7,56 +7,97 @@
 <title>צילה · ניהול ציוד צילום</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@400;700;900&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; background: #0A0A0B; overflow: hidden; }
-  iframe#app {
-    position: fixed; inset: 0;
-    width: 100%; height: 100%;
-    border: 0;
-  }
-  /* מסך טעינה עד שהאפליקציה עולה */
-  #loader {
+  iframe#app { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; }
+
+  .overlay {
     position: fixed; inset: 0; z-index: 10;
     background: #0A0A0B; color: #FAFAFA;
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
     font-family: 'Heebo', 'Segoe UI', sans-serif; text-align: center; padding: 24px;
     transition: opacity 0.4s ease, visibility 0.4s ease;
   }
-  #loader.hidden { opacity: 0; visibility: hidden; }
-  #loader img { width: 88px; height: 88px; animation: pulse 1.4s ease-in-out infinite; }
+  .overlay.hidden { opacity: 0; visibility: hidden; }
+  .overlay img { width: 88px; height: 88px; }
+  #loader img { animation: pulse 1.4s ease-in-out infinite; }
   @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-  #loader h1 { font-weight: 900; font-size: 2rem; letter-spacing: -0.02em; }
-  #loader p { color: #A1A1AA; font-size: 0.9rem; max-width: 340px; line-height: 1.6; }
-  #loader a { color: #FAFAFA; }
+  .overlay h1 { font-weight: 900; font-size: 2rem; letter-spacing: -0.02em; }
+  .overlay p { color: #A1A1AA; font-size: 0.95rem; max-width: 380px; line-height: 1.7; }
+  .overlay .gate-badge {
+    background: rgba(239, 68, 68, 0.14); color: #F87171;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    padding: 6px 16px; border-radius: 999px; font-size: 0.85rem; font-weight: 700;
+  }
+  .overlay button {
+    font-family: inherit; font-size: 1rem; font-weight: 700; cursor: pointer;
+    background: #fff; color: #0A0A0B; border: 0;
+    padding: 12px 26px; border-radius: 10px; margin-top: 6px;
+  }
+  .overlay .alt { font-size: 0.8rem; color: #56565E; }
+  .overlay .alt a { color: #A1A1AA; }
 </style>
 </head>
 <body>
 
-<div id="loader">
+<!-- מסך טעינה -->
+<div class="overlay" id="loader">
   <img src="favicon-64.png" alt="צילה">
   <h1>צילה</h1>
-  <p id="loaderMsg">טוענת את הציוד...</p>
+  <p>טוענת את הציוד...</p>
+</div>
+
+<!-- שער: חשבונות 42creative בלבד -->
+<div class="overlay hidden" id="gate">
+  <img src="favicon-64.png" alt="צילה">
+  <h1>צילה</h1>
+  <span class="gate-badge">🔒 לחשבונות ארגוניים בלבד</span>
+  <p>
+    המערכת פתוחה לחשבונות הארגוניים של <strong>42creative.co.il</strong> בלבד.<br>
+    נראה שאינך מחובר/ת בדפדפן הזה עם חשבון כזה — מתחברים ונכנסים:
+  </p>
+  <button onclick="openAuth()">כניסה עם חשבון 42 ←</button>
+  <p class="alt">החלון שנפתח לא חוזר? <a href="https://script.google.com/a/macros/42creative.co.il/s/AKfycbwYpBTjZV-ONyKbpL9OsyirMDLVjOpMphNEvIC-CB4wg1QgcaHrVvg_Rnb1rGytKYjSBA/exec">כניסה ישירה</a></p>
 </div>
 
 <iframe id="app" allow="clipboard-write"
-        src="https://script.google.com/a/macros/42creative.co.il/s/AKfycbwYpBTjZV-ONyKbpL9OsyirMDLVjOpMphNEvIC-CB4wg1QgcaHrVvg_Rnb1rGytKYjSBA/exec"
-        onload="setTimeout(() => document.getElementById('loader').classList.add('hidden'), 600)"></iframe>
+        src="https://script.google.com/a/macros/42creative.co.il/s/AKfycbwYpBTjZV-ONyKbpL9OsyirMDLVjOpMphNEvIC-CB4wg1QgcaHrVvg_Rnb1rGytKYjSBA/exec"></iframe>
 
 <script>
-  // האפליקציה מבקשת רענון אחרי החלפת חשבון / התנתקות
+  var EXEC = 'https://script.google.com/a/macros/42creative.co.il/s/AKfycbwYpBTjZV-ONyKbpL9OsyirMDLVjOpMphNEvIC-CB4wg1QgcaHrVvg_Rnb1rGytKYjSBA/exec';
+  var appReady = false;
+
+  // האפליקציה משדרת 'ready' כשהיא חיה, ו-'reload' אחרי החלפת חשבון
   window.addEventListener('message', function (ev) {
-    if (ev && ev.data && ev.data.tzila === 'reload') location.reload();
+    if (!ev || !ev.data) return;
+    if (ev.data.tzila === 'ready') {
+      appReady = true;
+      document.getElementById('loader').classList.add('hidden');
+      document.getElementById('gate').classList.add('hidden');
+    }
+    if (ev.data.tzila === 'reload') location.reload();
   });
 
-  // אם אחרי 8 שניות עדיין לא נטען — כנראה צריך להתחבר לחשבון 42 (דפי התחברות של גוגל לא נטענים בתוך iframe)
+  // לא הגיע 'ready' בזמן סביר? גוגל חסמה בפנים — מציגים את השער
   setTimeout(function () {
-    var loader = document.getElementById('loader');
-    if (!loader.classList.contains('hidden')) {
-      document.getElementById('loaderMsg').innerHTML =
-        'הטעינה מתעכבת? כנראה צריך להתחבר לחשבון 42creative שלך.<br>' +
-        '<a href="https://script.google.com/a/macros/42creative.co.il/s/AKfycbwYpBTjZV-ONyKbpL9OsyirMDLVjOpMphNEvIC-CB4wg1QgcaHrVvg_Rnb1rGytKYjSBA/exec">להתחברות ולכניסה ←</a>';
+    if (!appReady) {
+      document.getElementById('loader').classList.add('hidden');
+      document.getElementById('gate').classList.remove('hidden');
     }
-  }, 8000);
+  }, 9000);
+
+  // כניסה/החלפת חשבון בפופאפ — כשנסגר, מרעננים את הדף
+  function openAuth() {
+    var w = window.open(
+      'https://accounts.google.com/AccountChooser?continue=' + encodeURIComponent(EXEC + '?authdone=1'),
+      'tzila_auth', 'width=520,height=660'
+    );
+    if (!w) { alert('הדפדפן חסם את החלון — אפשרו חלונות קופצים ונסו שוב'); return; }
+    var t = setInterval(function () {
+      if (w.closed) { clearInterval(t); location.reload(); }
+    }, 600);
+  }
 </script>
 
 </body>

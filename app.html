@@ -887,6 +887,8 @@ function updateAdminUI() {
     renderHistoryChips();
   } finally {
     hideLoadingScreen();
+    // מאותתת לעטיפה ב-GitHub Pages שהאפליקציה חיה (אחרת היא תציג שער "42 בלבד")
+    try { window.top.postMessage({ tzila: 'ready' }, '*'); } catch (e) {}
   }
 })();
 
