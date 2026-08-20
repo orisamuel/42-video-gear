@@ -41,7 +41,8 @@ function doGet(e) {
   return HtmlService.createHtmlOutputFromFile('app')
     .setTitle('צילה · ניהול ציוד צילום')
     .setFaviconUrl(FAVICON_URL)
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL); // מאפשר עטיפה ב-iframe מהכתובת היפה ב-GitHub Pages
 }
 
 function jsonResponse(data) {
@@ -94,6 +95,57 @@ function getAdminEmails_() {
     raw = DEFAULT_ADMIN_EMAILS;
   }
   return raw.split(',').map(function(s) { return s.trim().toLowerCase(); }).filter(String);
+}
+
+// עדכון/הוספה של ערך בגיליון settings
+function setSetting_(key, value) {
+  const sheet = ensureSheet('settings', SETTINGS_HEADERS);
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === key) {
+      sheet.getRange(i + 1, 2).setValue(value);
+      return;
+    }
+  }
+  sheet.appendRow([key, value]);
+}
+
+// ── ניהול אדמינים (מתוך פאנל הניהול באפליקציה) ──────────────
+
+function api_getAdmins() {
+  const user = getUser_();
+  if (!user) return NO_AUTH;
+  if (!user.isAdmin) return NO_ADMIN;
+  return { success: true, admins: getAdminEmails_() };
+}
+
+function api_addAdmin(data) {
+  const user = getUser_();
+  if (!user) return NO_AUTH;
+  if (!user.isAdmin) return NO_ADMIN;
+  const email = String((data || {}).email || '').trim().toLowerCase();
+  if (!email || email.indexOf('@') === -1) return { success: false, message: 'אימייל לא תקין' };
+  if (email.indexOf('@' + ALLOWED_DOMAIN) === -1) {
+    return { success: false, message: 'רק אימיילים של ' + ALLOWED_DOMAIN + ' יכולים להיות אדמינים' };
+  }
+  const admins = getAdminEmails_();
+  if (admins.indexOf(email) !== -1) return { success: false, message: email + ' כבר אדמין' };
+  admins.push(email);
+  setSetting_('adminEmails', admins.join(', '));
+  return { success: true, message: email + ' נוסף כאדמין', admins: admins };
+}
+
+function api_removeAdmin(data) {
+  const user = getUser_();
+  if (!user) return NO_AUTH;
+  if (!user.isAdmin) return NO_ADMIN;
+  const email = String((data || {}).email || '').trim().toLowerCase();
+  if (email === user.email) return { success: false, message: 'אי אפשר להסיר את עצמך מרשימת האדמינים' };
+  const admins = getAdminEmails_().filter(function(a) { return a !== email; });
+  if (admins.length === getAdminEmails_().length) return { success: false, message: email + ' לא נמצא ברשימה' };
+  if (admins.length === 0) return { success: false, message: 'חייב להישאר לפחות אדמין אחד' };
+  setSetting_('adminEmails', admins.join(', '));
+  return { success: true, message: email + ' הוסר מרשימת האדמינים', admins: admins };
 }
 
 // ============================================================

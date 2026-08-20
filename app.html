@@ -179,7 +179,17 @@ button { cursor: pointer; font-family: inherit; border: none; outline: none; }
   background: var(--glass-bg); border: 1px solid var(--glass-border);
   border-radius: var(--radius-pill); padding: 8px 14px;
   font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);
+  cursor: pointer; transition: var(--t-fast);
 }
+.user-chip:hover { background: var(--glass-hover); color: var(--text-primary); }
+.admin-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: var(--glass-bg); border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md); padding: 9px 12px; margin-bottom: 8px;
+  font-size: 0.9rem;
+}
+.admin-you { color: var(--text-muted); font-size: 0.8rem; }
+.admin-del { width: 30px !important; height: 30px !important; font-size: 0.8rem; color: var(--danger); }
 .user-chip .user-dot {
   width: 8px; height: 8px; border-radius: 50%;
   background: var(--success); box-shadow: 0 0 8px var(--success);
@@ -515,7 +525,7 @@ button { cursor: pointer; font-family: inherit; border: none; outline: none; }
     <div class="header-actions">
       <button class="btn btn-primary" id="addBtn" style="display:none;" onclick="openAddModal()">+ פריט חדש</button>
       <a class="btn btn-secondary" id="openSheetBtn" target="_blank" rel="noopener" style="display:none;">📊 הגיליון</a>
-      <span class="user-chip" id="userChip" style="display:none;"><span class="user-dot"></span><span id="userChipName"></span></span>
+      <span class="user-chip" id="userChip" style="display:none;" onclick="openUserPanel()"><span class="user-dot"></span><span id="userChipName"></span></span>
       <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">☀️</button>
     </div>
   </header>
@@ -606,6 +616,33 @@ button { cursor: pointer; font-family: inherit; border: none; outline: none; }
       <button class="btn btn-primary" id="eqSaveBtn" onclick="submitEquipment()">שמירה</button>
       <button class="btn btn-secondary" onclick="closeModal('eqModal')">ביטול</button>
       <button class="btn btn-danger" id="eqDeleteBtn" style="margin-inline-start:auto; display:none;" onclick="removeEquipment()">מחיקה</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Modal: user / admin panel ═══ -->
+<div class="modal-backdrop" id="userModal">
+  <div class="modal" style="max-width: 460px;">
+    <div class="modal-header">
+      <div class="modal-title" id="userModalTitle">החשבון שלי</div>
+      <button class="modal-close" onclick="closeModal('userModal')">✕</button>
+    </div>
+    <div class="modal-eq-name" id="userInfoBox"></div>
+    <div id="adminSection" style="display:none;">
+      <label class="form-label" style="margin-bottom:10px;">ניהול אדמינים — מי שיכול להוסיף, לערוך ולמחוק ציוד:</label>
+      <div id="adminList"></div>
+      <div style="display:flex; gap:8px; margin-top:12px;">
+        <input class="form-input" id="newAdminEmail" type="email" placeholder="שם@42creative.co.il" style="direction:ltr; text-align:left;"
+               onkeydown="if (event.key === 'Enter') addAdmin();">
+        <button class="btn btn-primary" id="addAdminBtn" onclick="addAdmin()" style="flex-shrink:0;">+ הוספה</button>
+      </div>
+      <p style="font-size:0.78rem; color:var(--text-muted); margin-top:10px;">
+        השינויים נכנסים לתוקף מיידית. הרשימה שמורה בגיליון settings.
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('userModal')">סגירה</button>
+      <button class="btn btn-danger" style="margin-inline-start:auto;" onclick="switchAccount()">🚪 התנתקות / החלפת חשבון</button>
     </div>
   </div>
 </div>
@@ -872,6 +909,80 @@ function renderAll() {
   renderHistoryChips();
   renderHistory();
   renderDatalists();
+}
+
+// ════════════════════════════════════════════════════════════
+// User / Admin panel
+// ════════════════════════════════════════════════════════════
+function openUserPanel() {
+  if (!state.user) return;
+  const adm = isAdminMode();
+  document.getElementById('userModalTitle').textContent = adm ? 'החשבון שלי · ניהול' : 'החשבון שלי';
+  document.getElementById('userInfoBox').innerHTML =
+    `👤 ${esc(state.user.name)} <span style="font-weight:400; color:var(--text-secondary);">· ${esc(state.user.email)} · ${adm ? '🔑 אדמין' : 'צוות'}</span>`;
+  document.getElementById('adminSection').style.display = adm ? '' : 'none';
+  if (adm) loadAdmins();
+  openModal('userModal');
+}
+
+async function loadAdmins() {
+  const box = document.getElementById('adminList');
+  box.innerHTML = '<div style="color:var(--text-muted); padding:6px;">טוען...</div>';
+  try {
+    const res = await apiCall('api_getAdmins');
+    if (!res.success) throw new Error(res.message);
+    renderAdmins(res.admins);
+  } catch (e) {
+    box.innerHTML = `<div style="color:var(--danger); padding:6px;">${esc(e.message)}</div>`;
+  }
+}
+
+function renderAdmins(admins) {
+  document.getElementById('adminList').innerHTML = admins.map(a => `
+    <div class="admin-row">
+      <span style="direction:ltr;">${esc(a)}</span>
+      ${a === state.user.email
+        ? '<span class="admin-you">(את/ה)</span>'
+        : `<button class="btn-icon admin-del" title="הסרת אדמין" onclick="removeAdmin('${esc(a)}')">✕</button>`}
+    </div>`).join('');
+}
+
+async function addAdmin() {
+  const input = document.getElementById('newAdminEmail');
+  const email = input.value.trim().toLowerCase();
+  if (!email || !email.includes('@')) { showToast('צריך אימייל תקין', 'warning'); return; }
+  const btn = document.getElementById('addAdminBtn');
+  setBtnLoading(btn, true);
+  try {
+    const res = await apiCall('api_addAdmin', { email });
+    if (!res.success) throw new Error(res.message);
+    input.value = '';
+    showToast(res.message, 'success');
+    renderAdmins(res.admins);
+  } catch (e) {
+    showToast(e.message, 'error');
+  } finally {
+    setBtnLoading(btn, false, '+ הוספה');
+  }
+}
+
+// התנתקות = בחירת חשבון גוגל אחר וחזרה לאפליקציה
+// (continue חייב להיות כתובת של גוגל, לכן חוזרים ישירות ל-exec)
+function switchAccount() {
+  const appUrl = 'https://script.google.com/a/macros/42creative.co.il/s/AKfycbwYpBTjZV-ONyKbpL9OsyirMDLVjOpMphNEvIC-CB4wg1QgcaHrVvg_Rnb1rGytKYjSBA/exec';
+  window.open('https://accounts.google.com/AccountChooser?continue=' + encodeURIComponent(appUrl), '_blank');
+}
+
+async function removeAdmin(email) {
+  if (!confirm(`להסיר את ${email} מרשימת האדמינים?`)) return;
+  try {
+    const res = await apiCall('api_removeAdmin', { email });
+    if (!res.success) throw new Error(res.message);
+    showToast(res.message, 'success');
+    renderAdmins(res.admins);
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
 }
 
 // ════════════════════════════════════════════════════════════
