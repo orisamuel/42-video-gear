@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>צילה · ניהול ציוד צילום</title>
+<style>
+/* ============================================================
+   צילה 📷 · 42 — Design System
+   מיתוג 42: מונוכרום, מינימליסטי, טיפוגרפיה כבדה, הרבה אוויר.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&display=swap');
+
+:root {
+  --bg-base:       #0A0A0B;
+  --bg-surface:    #131315;
+  --bg-elevated:   #1B1B1F;
+
+  --accent:          #FFFFFF;
+  --accent-bright:   #FFFFFF;
+  --accent-dim:      #D4D4D8;
+  --accent-contrast: #0A0A0B;
+  --accent-glow:     rgba(255, 255, 255, 0.07);
+  --accent-glow-lg:  rgba(255, 255, 255, 0.16);
+
+  --glass-bg:      rgba(255, 255, 255, 0.04);
+  --glass-border:  rgba(255, 255, 255, 0.10);
+  --glass-hover:   rgba(255, 255, 255, 0.08);
+
+  --text-primary:   #FAFAFA;
+  --text-secondary: #A1A1AA;
+  --text-muted:     #56565E;
+
+  --success:    #10B981;  --success-bg: rgba(16, 185, 129, 0.14);
+  --danger:     #EF4444;  --danger-bg:  rgba(239, 68, 68, 0.14);
+  --warning:    #F59E0B;  --warning-bg: rgba(245, 158, 11, 0.14);
+  --info:       #3B82F6;  --info-bg:    rgba(59, 130, 246, 0.14);
+
+  --radius-xl:   22px;
+  --radius-lg:   16px;
+  --radius-md:   10px;
+  --radius-sm:   6px;
+  --radius-pill: 999px;
+
+  --shadow-sm:  0 2px 8px rgba(0,0,0,0.35);
+  --shadow-md:  0 4px 20px rgba(0,0,0,0.45);
+  --shadow-lg:  0 8px 40px rgba(0,0,0,0.55);
+
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --t-fast:   all 0.15s var(--ease-smooth);
+  --t-med:    all 0.22s var(--ease-smooth);
+  --t-spring: all 0.3s var(--ease-spring);
+}
+
+[data-theme="light"] {
+  --bg-base:       #FAFAF8;
+  --bg-surface:    #FFFFFF;
+  --bg-elevated:   #F1F1EE;
+
+  --accent:          #0A0A0B;
+  --accent-bright:   #000000;
+  --accent-dim:      #3F3F46;
+  --accent-contrast: #FFFFFF;
+  --accent-glow:     rgba(10, 10, 11, 0.06);
+  --accent-glow-lg:  rgba(10, 10, 11, 0.16);
+
+  --glass-bg:      rgba(0,0,0,0.03);
+  --glass-border:  rgba(0,0,0,0.10);
+  --glass-hover:   rgba(0,0,0,0.06);
+
+  --text-primary:   #101012;
+  --text-secondary: #6B6B72;
+  --text-muted:     #A6A6AD;
+
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 20px rgba(0,0,0,0.09);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,0.13);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { direction: rtl; }
+body {
+  font-family: 'Heebo', 'Segoe UI', sans-serif;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  transition: background 0.3s var(--ease-smooth), color 0.3s var(--ease-smooth);
+}
+body::before {
+  content: ''; position: fixed; top: -120px; left: 50%; transform: translateX(-50%);
+  width: 700px; height: 320px;
+  background: radial-gradient(ellipse, var(--accent-glow) 0%, transparent 70%);
+  pointer-events: none; z-index: 0;
+}
+body::after {
+  content: '42';
+  position: fixed; bottom: -0.28em; left: -0.06em;
+  font-size: clamp(280px, 42vw, 620px);
+  font-weight: 900; line-height: 1;
+  color: var(--text-primary);
+  opacity: 0.025;
+  pointer-events: none; z-index: 0;
+  user-select: none;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-bright); }
+button { cursor: pointer; font-family: inherit; border: none; outline: none; }
+
+/* ── Loading screen ─────────────────────────────────────── */
+.loading-screen {
+  position: fixed; inset: 0; z-index: 9999;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: var(--bg-base);
+  transition: opacity 0.4s var(--ease-smooth), visibility 0.4s var(--ease-smooth);
+}
+.loading-screen.hidden { opacity: 0; visibility: hidden; }
+.loading-logo {
+  font-size: 4rem; font-weight: 900; letter-spacing: -0.04em;
+  animation: pulse42 1.4s ease-in-out infinite;
+}
+@keyframes pulse42 { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.loading-spinner {
+  width: 40px; height: 40px; margin-top: 20px;
+  border: 3px solid var(--glass-border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-progress { margin-top: 16px; color: var(--text-secondary); font-size: 0.9rem; }
+
+#mainContent {
+  opacity: 0; transition: opacity 0.4s var(--ease-smooth);
+  max-width: 1240px; margin: 0 auto; padding: 24px;
+  position: relative; z-index: 1;
+}
+#mainContent.visible { opacity: 1; }
+
+/* ── Header ─────────────────────────────────────────────── */
+.app-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+  padding: 20px 0 24px;
+  border-bottom: 1px solid var(--glass-border);
+  margin-bottom: 24px;
+}
+.header-brand { display: flex; align-items: center; gap: 16px; }
+.logo-42 {
+  width: 54px; height: 54px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent); color: var(--accent-contrast);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+.logo-42 .mascot { width: 38px; height: 38px; --mascot-cut: var(--accent); }
+.mascot-loading {
+  width: 92px; height: 92px;
+  color: var(--text-primary);
+  --mascot-cut: var(--bg-base);
+  animation: pulse42 1.4s ease-in-out infinite;
+}
+.loading-name { font-size: 2.4rem; margin-top: 6px; }
+.app-title {
+  font-size: 1.7rem; font-weight: 900; letter-spacing: -0.02em;
+  color: var(--text-primary); line-height: 1.1;
+}
+.app-subtitle { font-size: 0.82rem; color: var(--text-secondary); margin-top: 3px; }
+.header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.theme-toggle {
+  background: var(--glass-bg); border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill); padding: 9px 13px;
+  color: var(--text-primary); transition: var(--t-fast); font-size: 0.95rem;
+}
+.theme-toggle:hover { background: var(--glass-hover); }
+.user-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--glass-bg); border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill); padding: 8px 14px;
+  font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);
+}
+.user-chip .user-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--success); box-shadow: 0 0 8px var(--success);
+}
+.user-chip .admin-star { font-size: 0.8rem; }
+
+/* ── Stats row ──────────────────────────────────────────── */
+.stats-row {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px; margin-bottom: 24px;
+}
+.stat-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  cursor: pointer;
+  transition: var(--t-med);
+  position: relative; overflow: hidden;
+}
+.stat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: var(--text-muted); }
+.stat-card.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.stat-value { font-size: 2.1rem; font-weight: 900; letter-spacing: -0.03em; line-height: 1; }
+.stat-label { font-size: 0.82rem; color: var(--text-secondary); margin-top: 6px; font-weight: 500; }
+.stat-card .stat-dot { position: absolute; top: 16px; left: 16px; width: 9px; height: 9px; border-radius: 50%; }
+.dot-success { background: var(--success); box-shadow: 0 0 10px var(--success); }
+.dot-warning { background: var(--warning); box-shadow: 0 0 10px var(--warning); }
+.dot-danger  { background: var(--danger);  box-shadow: 0 0 10px var(--danger);  }
+.dot-neutral { background: var(--text-muted); }
+
+/* ── Toolbar ────────────────────────────────────────────── */
+.toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 20px; }
+.search-wrap { position: relative; flex: 1; min-width: 220px; }
+.search-wrap .search-icon {
+  position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+  color: var(--text-muted); pointer-events: none; font-size: 0.9rem;
+}
+.search-input {
+  width: 100%; padding: 11px 40px 11px 14px;
+  background: var(--bg-surface);
+  border: 1.5px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  color: var(--text-primary);
+  font-family: inherit; font-size: 0.95rem;
+  transition: var(--t-fast);
+}
+.search-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip {
+  padding: 8px 16px; border-radius: var(--radius-pill);
+  background: var(--glass-bg); border: 1.5px solid var(--glass-border);
+  color: var(--text-secondary); font-size: 0.87rem; font-weight: 600;
+  transition: var(--t-fast);
+}
+.chip:hover { background: var(--glass-hover); color: var(--text-primary); }
+.chip.active { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
+.category-select {
+  padding: 9px 14px;
+  background: var(--bg-surface);
+  border: 1.5px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  color: var(--text-primary);
+  font-family: inherit; font-size: 0.9rem; cursor: pointer;
+}
+
+/* ── Tabs ───────────────────────────────────────────────── */
+.tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--glass-border); }
+.tab {
+  padding: 11px 22px; background: transparent;
+  color: var(--text-secondary); font-size: 1rem; font-weight: 700;
+  border-bottom: 2.5px solid transparent; margin-bottom: -1px;
+  transition: var(--t-fast);
+}
+.tab:hover { color: var(--text-primary); }
+.tab.active { color: var(--text-primary); border-bottom-color: var(--accent); }
+
+/* ── Equipment grid ─────────────────────────────────────── */
+.equipment-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 16px; }
+.eq-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  display: flex; flex-direction: column; gap: 12px;
+  transition: var(--t-med);
+  animation: cardIn 0.3s var(--ease-smooth) both;
+}
+@keyframes cardIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.eq-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: var(--text-muted); }
+.eq-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.eq-category {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 0.78rem; font-weight: 600; color: var(--text-secondary);
+  background: var(--glass-bg); border: 1px solid var(--glass-border);
+  padding: 4px 11px; border-radius: var(--radius-pill);
+}
+.eq-name { font-size: 1.12rem; font-weight: 800; letter-spacing: -0.01em; line-height: 1.3; }
+.eq-meta { font-size: 0.82rem; color: var(--text-muted); display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 4px; }
+.eq-tag {
+  display: inline-flex; align-items: center;
+  padding: 2px 9px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: var(--glass-bg);
+  font-size: 0.75rem; font-weight: 800; letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  direction: ltr;
+}
+.eq-notes {
+  font-size: 0.82rem; color: var(--text-secondary);
+  background: var(--glass-bg); border-radius: var(--radius-sm); padding: 7px 10px;
+}
+
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 12px; border-radius: var(--radius-pill);
+  font-size: 0.78rem; font-weight: 700; white-space: nowrap;
+}
+.badge::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.badge-available { background: var(--success-bg); color: var(--success); }
+.badge-out       { background: var(--warning-bg); color: var(--warning); }
+.badge-repair    { background: var(--danger-bg);  color: var(--danger); }
+.badge-overdue   { background: var(--danger-bg);  color: var(--danger); }
+.badge-returned  { background: var(--success-bg); color: var(--success); }
+.badge-open      { background: var(--warning-bg); color: var(--warning); }
+
+.holder-box {
+  background: var(--warning-bg);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  font-size: 0.86rem; line-height: 1.6;
+}
+.holder-box.overdue { background: var(--danger-bg); border-color: rgba(239, 68, 68, 0.3); }
+.holder-name { font-weight: 800; }
+.holder-detail { color: var(--text-secondary); font-size: 0.8rem; }
+.repair-box {
+  background: var(--danger-bg);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: var(--radius-md);
+  padding: 10px 12px; font-size: 0.86rem; font-weight: 600;
+  color: var(--danger);
+}
+
+.eq-actions { display: flex; gap: 8px; margin-top: auto; align-items: center; }
+.eq-actions .btn { flex: 1; }
+.btn-icon {
+  flex: 0 0 auto !important;
+  width: 40px; height: 40px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--glass-bg); border: 1.5px solid var(--glass-border);
+  border-radius: var(--radius-md); font-size: 0.95rem;
+  color: var(--text-primary);
+  transition: var(--t-fast);
+}
+.btn-icon:hover { background: var(--glass-hover); }
+.eq-history-link {
+  background: none; color: var(--text-muted); font-size: 0.78rem;
+  text-decoration: underline; text-underline-offset: 3px;
+  align-self: flex-start;
+}
+.eq-history-link:hover { color: var(--text-primary); }
+
+.empty-state { text-align: center; padding: 70px 20px; color: var(--text-secondary); grid-column: 1 / -1; }
+.empty-state .empty-emoji { font-size: 3rem; margin-bottom: 14px; }
+.empty-state .empty-title { font-size: 1.15rem; font-weight: 800; color: var(--text-primary); margin-bottom: 6px; }
+
+/* ── History table ──────────────────────────────────────── */
+.table-wrap { overflow-x: auto; border-radius: var(--radius-lg); border: 1px solid var(--glass-border); background: var(--bg-surface); }
+.history-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; min-width: 760px; }
+.history-table th {
+  text-align: right; padding: 13px 16px;
+  font-size: 0.76rem; font-weight: 700; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  white-space: nowrap;
+}
+.history-table td { padding: 12px 16px; border-bottom: 1px solid var(--glass-border); vertical-align: middle; }
+.history-table tr:last-child td { border-bottom: none; }
+.history-table tbody tr { transition: var(--t-fast); }
+.history-table tbody tr:hover { background: var(--glass-bg); }
+
+/* ── Form elements ──────────────────────────────────────── */
+.form-group { margin-bottom: 16px; }
+.form-label { display: block; margin-bottom: 6px; font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); }
+.form-label .req { color: var(--danger); }
+.form-input, .form-select, .form-textarea {
+  width: 100%; padding: 10px 14px;
+  background: var(--bg-elevated);
+  border: 1.5px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: inherit; font-size: 0.95rem;
+  transition: var(--t-fast);
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 480px) { .form-row { grid-template-columns: 1fr; } }
+
+/* ── Buttons ────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 10px 18px; border-radius: var(--radius-md);
+  font-size: 0.95rem; font-weight: 700;
+  transition: var(--t-spring);
+}
+.btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none !important; }
+.btn-primary { background: var(--accent); color: var(--accent-contrast); }
+.btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 24px var(--accent-glow-lg); }
+.btn-secondary { background: var(--glass-bg); border: 1.5px solid var(--glass-border); color: var(--text-primary); }
+.btn-secondary:hover:not(:disabled) { background: var(--glass-hover); }
+.btn-success { background: var(--success); color: #fff; }
+.btn-success:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(16,185,129,0.35); }
+.btn-danger { background: var(--danger-bg); border: 1.5px solid rgba(239, 68, 68, 0.4); color: var(--danger); }
+
+/* ── Modal ─────────────────────────────────────────────── */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,0.65); backdrop-filter: blur(5px);
+  display: none; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.modal-backdrop.open { display: flex; }
+.modal {
+  background: var(--bg-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  padding: 26px;
+  max-width: 500px; width: 100%;
+  max-height: 90vh; overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+  animation: modalIn 0.25s var(--ease-spring);
+}
+@keyframes modalIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.modal-title { font-size: 1.15rem; font-weight: 800; letter-spacing: -0.01em; }
+.modal-close {
+  background: transparent; color: var(--text-muted); font-size: 1.3rem;
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  transition: var(--t-fast);
+}
+.modal-close:hover { background: var(--glass-hover); color: var(--text-primary); }
+.modal-footer { display: flex; gap: 10px; justify-content: flex-start; margin-top: 22px; }
+.modal-eq-name {
+  background: var(--glass-bg); border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md); padding: 12px 14px;
+  font-weight: 800; margin-bottom: 18px;
+  display: flex; align-items: center; gap: 8px;
+}
+
+/* ── Toast ──────────────────────────────────────────────── */
+.toast-container {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  z-index: 10000; display: flex; flex-direction: column; gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 18px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  opacity: 0; transform: translateY(20px);
+  transition: var(--t-spring);
+  pointer-events: auto;
+}
+.toast-show { opacity: 1; transform: translateY(0); }
+.toast-hide { opacity: 0; transform: translateY(20px); }
+.toast-success { border-color: var(--success); color: var(--success); }
+.toast-error   { border-color: var(--danger);  color: var(--danger);  }
+.toast-warning { border-color: var(--warning); color: var(--warning); }
+.toast-info    { border-color: var(--info);    color: var(--info);    }
+.toast-icon { font-weight: 800; }
+.toast-msg  { color: var(--text-primary); }
+
+@media (max-width: 640px) {
+  #mainContent { padding: 16px; }
+  .app-title { font-size: 1.35rem; }
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+  .stat-value { font-size: 1.7rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- דמות הלוגו של צילה -->
+<svg width="0" height="0" style="position:absolute;" aria-hidden="true">
+  <defs>
+    <g id="tzila-mascot">
+      <path d="M20 17 v-3 a6 6 0 0 1 6-6 h6 a6 6 0 0 1 6 6 v3 z" fill="currentColor"/>
+      <rect x="4" y="16" width="56" height="41" rx="12" fill="currentColor"/>
+      <circle cx="29" cy="37" r="13" style="fill: var(--mascot-cut, #0A0A0B);"/>
+      <circle cx="29" cy="37" r="8.5" fill="currentColor"/>
+      <circle cx="32.4" cy="33.6" r="2.6" style="fill: var(--mascot-cut, #0A0A0B);"/>
+      <g stroke-width="2.6" stroke-linecap="round" fill="none" style="stroke: var(--mascot-cut, #0A0A0B);">
+        <path d="M20 22 L18 17.5"/>
+        <path d="M29 20.5 L29 16.5"/>
+        <path d="M38 22 L40 17.5"/>
+        <path d="M46 44 q4 4.5 8.5 0.5"/>
+      </g>
+      <circle cx="51" cy="25.5" r="3.2" fill="#F87171"/>
+    </g>
+  </defs>
+</svg>
+
+<!-- Loading screen -->
+<div class="loading-screen" id="loadingScreen">
+  <svg class="mascot mascot-loading" viewBox="0 0 64 64"><use href="#tzila-mascot"/></svg>
+  <div class="loading-logo loading-name">צילה</div>
+  <div class="loading-spinner"></div>
+  <div class="loading-progress" id="loadingProgress">טוענת את הציוד...</div>
+</div>
+
+<!-- Main content -->
+<div id="mainContent">
+
+  <header class="app-header">
+    <div class="header-brand">
+      <div class="logo-42">
+        <svg class="mascot" viewBox="0 0 64 64"><use href="#tzila-mascot"/></svg>
+      </div>
+      <div>
+        <div class="app-title" id="appTitle"></div>
+        <div class="app-subtitle" id="appSubtitle"></div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-primary" id="addBtn" style="display:none;" onclick="openAddModal()">+ פריט חדש</button>
+      <a class="btn btn-secondary" id="openSheetBtn" target="_blank" rel="noopener" style="display:none;">📊 הגיליון</a>
+      <span class="user-chip" id="userChip" style="display:none;"><span class="user-dot"></span><span id="userChipName"></span></span>
+      <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">☀️</button>
+    </div>
+  </header>
+
+  <!-- Stats -->
+  <section class="stats-row" id="statsRow"></section>
+
+  <!-- Tabs -->
+  <nav class="tabs">
+    <button class="tab active" id="tabEquipment" onclick="switchTab('equipment')">הציוד</button>
+    <button class="tab" id="tabHistory" onclick="switchTab('history')">היסטוריה</button>
+  </nav>
+
+  <!-- ═══ Equipment view ═══ -->
+  <section id="equipmentView">
+    <div class="toolbar">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input class="search-input" id="searchInput" type="text"
+               placeholder="חיפוש לפי שם, מק״ט, מותג, S/N או מי שמחזיק..."
+               oninput="state.filters.q = this.value; renderEquipment();">
+      </div>
+      <select class="category-select" id="categoryFilter" onchange="state.filters.category = this.value; renderEquipment();">
+        <option value="">כל הקטגוריות</option>
+      </select>
+      <div class="chips" id="statusChips"></div>
+    </div>
+    <div class="equipment-grid" id="equipmentGrid"></div>
+  </section>
+
+  <!-- ═══ History view ═══ -->
+  <section id="historyView" style="display:none;">
+    <div class="toolbar">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input class="search-input" id="historySearch" type="text"
+               placeholder="חיפוש בהיסטוריה — פריט, שם או פרויקט..."
+               oninput="state.filters.hq = this.value; renderHistory();">
+      </div>
+      <div class="chips" id="historyChips"></div>
+    </div>
+    <div class="table-wrap">
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th>פריט</th><th>אצל מי</th><th>פרויקט</th>
+            <th>נלקח</th><th>להחזרה עד</th><th>הוחזר</th>
+            <th>סטטוס</th><th>הערות</th><th>נרשם ע״י</th>
+          </tr>
+        </thead>
+        <tbody id="historyBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+</div>
+
+<!-- ═══ Modal: add / edit equipment ═══ -->
+<div class="modal-backdrop" id="eqModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="eqModalTitle">פריט חדש</div>
+      <button class="modal-close" onclick="closeModal('eqModal')">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">שם הפריט <span class="req">*</span></label>
+      <input class="form-input" id="eqName" type="text" placeholder='למשל: Sony FX3'>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">קטגוריה</label>
+        <select class="form-select" id="eqCategory"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">מותג</label>
+        <input class="form-input" id="eqBrand" type="text" placeholder="Sony / DJI / Aputure...">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">מס׳ סידורי יצרן (S/N)</label>
+      <input class="form-input" id="eqSerial" type="text" placeholder="אופציונלי — מהמדבקה על המכשיר. מק״ט פנימי נוצר אוטומטית.">
+    </div>
+    <div class="form-group">
+      <label class="form-label">הערות</label>
+      <textarea class="form-textarea" id="eqNotes" rows="2" placeholder="מצב, אביזרים נלווים, כל דבר שכדאי לדעת..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" id="eqSaveBtn" onclick="submitEquipment()">שמירה</button>
+      <button class="btn btn-secondary" onclick="closeModal('eqModal')">ביטול</button>
+      <button class="btn btn-danger" id="eqDeleteBtn" style="margin-inline-start:auto; display:none;" onclick="removeEquipment()">מחיקה</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Modal: checkout (השאלה) ═══ -->
+<div class="modal-backdrop" id="checkoutModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">השאלת ציוד</div>
+      <button class="modal-close" onclick="closeModal('checkoutModal')">✕</button>
+    </div>
+    <div class="modal-eq-name" id="checkoutEqName"></div>
+    <div class="form-group">
+      <label class="form-label">מי לוקח? <span class="req">*</span></label>
+      <input class="form-input" id="coPerson" type="text" list="personsList" placeholder="שם מלא">
+      <datalist id="personsList"></datalist>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">פרויקט / צילום</label>
+        <input class="form-input" id="coProject" type="text" list="projectsList" placeholder="אופציונלי">
+        <datalist id="projectsList"></datalist>
+      </div>
+      <div class="form-group">
+        <label class="form-label">להחזרה עד</label>
+        <input class="form-input" id="coDueDate" type="date">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">הערות</label>
+      <input class="form-input" id="coNotes" type="text" placeholder="אופציונלי">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" id="coSubmitBtn" onclick="submitCheckout()">אישור השאלה</button>
+      <button class="btn btn-secondary" onclick="closeModal('checkoutModal')">ביטול</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Modal: check-in (החזרה) ═══ -->
+<div class="modal-backdrop" id="checkinModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">החזרת ציוד</div>
+      <button class="modal-close" onclick="closeModal('checkinModal')">✕</button>
+    </div>
+    <div class="modal-eq-name" id="checkinEqName"></div>
+    <div class="form-group">
+      <label class="form-label">הערות החזרה (מצב הציוד וכו׳)</label>
+      <input class="form-input" id="ciNotes" type="text" placeholder="אופציונלי">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-success" id="ciSubmitBtn" onclick="submitCheckin()">✓ אישור החזרה</button>
+      <button class="btn btn-secondary" onclick="closeModal('checkinModal')">ביטול</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+// Config
+// ════════════════════════════════════════════════════════════
+const CONFIG = {
+  APP_NAME:     'צילה',
+  APP_SUBTITLE: 'מערכת לניהול ציוד צילום · 42',
+  SHEETS_URL:   'https://docs.google.com/spreadsheets/d/1Bw6zGoOiv8jvmAth1rPT6dgB4hnKi4mgypHFUPjVXgE/edit',
+  CATEGORIES: [
+    { name: 'מצלמות',            emoji: '📷' },
+    { name: 'עדשות',             emoji: '🔭' },
+    { name: 'תאורה',             emoji: '💡' },
+    { name: 'סאונד',             emoji: '🎙️' },
+    { name: 'חצובות וגימבלים',   emoji: '🎬' },
+    { name: 'מוניטורים',         emoji: '🖥️' },
+    { name: 'סוללות וכרטיסים',   emoji: '🔋' },
+    { name: 'רחפנים',            emoji: '🚁' },
+    { name: 'אביזרים',           emoji: '🧰' },
+    { name: 'אחר',               emoji: '📦' },
+  ],
+  STATUS: { AVAILABLE: 'זמין', OUT: 'מושאל', REPAIR: 'בתיקון' },
+  DEFAULT_THEME: 'dark',
+};
+
+// ════════════════════════════════════════════════════════════
+// Utilities (storage בטוח ל-iframe, theme, loading, toast)
+// ════════════════════════════════════════════════════════════
+function sGet(k)    { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function sSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+
+function initTheme() {
+  const saved = sGet('app-theme') || CONFIG.DEFAULT_THEME;
+  document.documentElement.dataset.theme = saved;
+  updateThemeToggleIcon(saved);
+}
+function toggleTheme() {
+  const next = (document.documentElement.dataset.theme || 'dark') === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  sSet('app-theme', next);
+  updateThemeToggleIcon(next);
+}
+function updateThemeToggleIcon(theme) {
+  const btn = document.getElementById('themeToggle');
+  if (btn) btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+}
+
+function updateLoadingProgress(text) {
+  const el = document.getElementById('loadingProgress');
+  if (el) el.textContent = text;
+}
+function hideLoadingScreen(delay = 400) {
+  setTimeout(() => {
+    document.getElementById('loadingScreen').classList.add('hidden');
+    document.getElementById('mainContent').classList.add('visible');
+  }, delay);
+}
+
+function showToast(message, type = 'info', duration = 3500) {
+  let container = document.getElementById('toastContainer');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toastContainer';
+    container.className = 'toast-container';
+    document.body.appendChild(container);
+  }
+  const toast = document.createElement('div');
+  toast.className = 'toast toast-' + type;
+  const icons = { success: '✓', error: '✕', warning: '⚠', info: 'ℹ' };
+  toast.innerHTML = `<span class="toast-icon">${icons[type] || 'ℹ'}</span><span class="toast-msg">${message}</span>`;
+  container.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('toast-show'));
+  setTimeout(() => {
+    toast.classList.remove('toast-show');
+    toast.classList.add('toast-hide');
+    setTimeout(() => toast.remove(), 350);
+  }, duration);
+}
+
+// ════════════════════════════════════════════════════════════
+// Transport — google.script.run עטוף ב-Promise
+// ════════════════════════════════════════════════════════════
+function apiCall(fnName, params) {
+  return new Promise((resolve, reject) => {
+    google.script.run
+      .withSuccessHandler(resolve)
+      .withFailureHandler(err => reject(new Error((err && err.message) || String(err))))
+      [fnName](params || {});
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+// State
+// ════════════════════════════════════════════════════════════
+const ST = CONFIG.STATUS;
+const state = {
+  user: null,          // { email, name, isAdmin } — מגיע מהשרת
+  equipment: [],
+  history: [],
+  persons: [],
+  projects: [],
+  filters: { q: '', status: '', category: '', hq: '', hstatus: '' },
+  editingId: null,
+  actionId: null,
+};
+
+// ════════════════════════════════════════════════════════════
+// Helpers
+// ════════════════════════════════════════════════════════════
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function catEmoji(name) {
+  const c = CONFIG.CATEGORIES.find(c => c.name === name);
+  return c ? c.emoji : '📦';
+}
+function parseHebDate(s) {
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(s || ''));
+  if (!m) return null;
+  return new Date(+m[3], +m[2] - 1, +m[1]);
+}
+function isoToHeb(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : '';
+}
+function isOverdue(eq) {
+  if (eq.status !== ST.OUT || !eq.dueDate) return false;
+  const due = parseHebDate(eq.dueDate);
+  if (!due) return false;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  return due < today;
+}
+function setBtnLoading(btn, loading, textWhenDone) {
+  if (loading) { btn.dataset.txt = btn.textContent; btn.disabled = true; btn.textContent = 'רגע...'; }
+  else { btn.disabled = false; btn.textContent = textWhenDone || btn.dataset.txt || btn.textContent; }
+}
+function isAdminMode() { return !!(state.user && state.user.isAdmin); }
+function userPrefix(email) { return String(email || '').split('@')[0]; }
+
+// ════════════════════════════════════════════════════════════
+// Init
+// ════════════════════════════════════════════════════════════
+initTheme();
+document.getElementById('appTitle').textContent    = CONFIG.APP_NAME;
+document.getElementById('appSubtitle').textContent = CONFIG.APP_SUBTITLE;
+document.getElementById('openSheetBtn').href = CONFIG.SHEETS_URL;
+
+(function initCategories() {
+  const filter = document.getElementById('categoryFilter');
+  const formSel = document.getElementById('eqCategory');
+  CONFIG.CATEGORIES.forEach(c => {
+    filter.insertAdjacentHTML('beforeend', `<option value="${esc(c.name)}">${c.emoji} ${esc(c.name)}</option>`);
+    formSel.insertAdjacentHTML('beforeend', `<option value="${esc(c.name)}">${c.emoji} ${esc(c.name)}</option>`);
+  });
+})();
+
+function updateAdminUI() {
+  const adm = isAdminMode();
+  document.getElementById('addBtn').style.display = adm ? '' : 'none';
+  document.getElementById('openSheetBtn').style.display = adm ? '' : 'none';
+  const chip = document.getElementById('userChip');
+  if (state.user) {
+    chip.style.display = '';
+    document.getElementById('userChipName').textContent = state.user.name + (adm ? ' · אדמין' : '');
+    chip.title = state.user.email;
+  } else {
+    chip.style.display = 'none';
+  }
+}
+
+(async function init() {
+  try {
+    await refresh(false);
+  } catch (e) {
+    document.getElementById('equipmentGrid').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-emoji">⚠️</div>
+        <div class="empty-title">שגיאה בטעינה</div>
+        <p>${esc(e.message)}</p>
+      </div>`;
+    renderStats();
+    renderStatusChips();
+    renderHistoryChips();
+  } finally {
+    hideLoadingScreen();
+  }
+})();
+
+async function refresh(silent = true) {
+  const res = await apiCall('api_getDashboard');
+  if (!res.success) throw new Error(res.message || 'שגיאה בשרת');
+  state.user      = res.user || null;
+  state.equipment = res.equipment || [];
+  state.history   = res.history || [];
+  state.persons   = res.persons || [];
+  state.projects  = res.projects || [];
+  updateAdminUI();
+  renderAll();
+  if (!silent) updateLoadingProgress('מוכן!');
+}
+
+function renderAll() {
+  renderStats();
+  renderStatusChips();
+  renderEquipment();
+  renderHistoryChips();
+  renderHistory();
+  renderDatalists();
+}
+
+// ════════════════════════════════════════════════════════════
+// Tabs
+// ════════════════════════════════════════════════════════════
+function switchTab(tab) {
+  const isEq = tab === 'equipment';
+  document.getElementById('tabEquipment').classList.toggle('active', isEq);
+  document.getElementById('tabHistory').classList.toggle('active', !isEq);
+  document.getElementById('equipmentView').style.display = isEq ? '' : 'none';
+  document.getElementById('historyView').style.display   = isEq ? 'none' : '';
+}
+
+// ════════════════════════════════════════════════════════════
+// Stats
+// ════════════════════════════════════════════════════════════
+function renderStats() {
+  const eq = state.equipment;
+  const out     = eq.filter(e => e.status === ST.OUT);
+  const overdue = eq.filter(isOverdue).length;
+  const stats = [
+    { key: '',           label: 'סה״כ פריטים', value: eq.length, dot: 'dot-neutral' },
+    { key: ST.AVAILABLE, label: 'זמינים',       value: eq.filter(e => e.status === ST.AVAILABLE).length, dot: 'dot-success' },
+    { key: ST.OUT,       label: overdue ? `מושאלים · ${overdue} באיחור` : 'מושאלים', value: out.length, dot: 'dot-warning' },
+    { key: ST.REPAIR,    label: 'בתיקון',       value: eq.filter(e => e.status === ST.REPAIR).length, dot: 'dot-danger' },
+  ];
+  document.getElementById('statsRow').innerHTML = stats.map(s => `
+    <div class="stat-card ${state.filters.status === s.key && s.key !== '' ? 'active' : ''}"
+         onclick="setStatusFilter('${s.key}')">
+      <span class="stat-dot ${s.dot}"></span>
+      <div class="stat-value">${s.value}</div>
+      <div class="stat-label">${s.label}</div>
+    </div>`).join('');
+}
+
+// ════════════════════════════════════════════════════════════
+// Equipment
+// ════════════════════════════════════════════════════════════
+const STATUS_CHIPS = [
+  { key: '',           label: 'הכל' },
+  { key: ST.AVAILABLE, label: 'זמין' },
+  { key: ST.OUT,       label: 'מושאל' },
+  { key: 'overdue',    label: 'באיחור' },
+  { key: ST.REPAIR,    label: 'בתיקון' },
+];
+
+function renderStatusChips() {
+  document.getElementById('statusChips').innerHTML = STATUS_CHIPS.map(c => `
+    <button class="chip ${state.filters.status === c.key ? 'active' : ''}"
+            onclick="setStatusFilter('${c.key}')">${c.label}</button>`).join('');
+}
+
+function setStatusFilter(key) {
+  state.filters.status = (state.filters.status === key) ? '' : key;
+  renderStatusChips();
+  renderStats();
+  renderEquipment();
+  switchTab('equipment');
+}
+
+function filteredEquipment() {
+  const { q, status, category } = state.filters;
+  const needle = q.trim().toLowerCase();
+  return state.equipment.filter(eq => {
+    if (status === 'overdue') { if (!isOverdue(eq)) return false; }
+    else if (status && eq.status !== status) return false;
+    if (category && eq.category !== category) return false;
+    if (needle) {
+      const hay = [eq.name, eq.assetTag, eq.brand, eq.serial, eq.holder, eq.project, eq.category]
+        .map(x => String(x || '').toLowerCase()).join(' ');
+      if (!hay.includes(needle)) return false;
+    }
+    return true;
+  });
+}
+
+function statusPriority(eq) {
+  if (isOverdue(eq)) return 0;
+  if (eq.status === ST.OUT) return 1;
+  if (eq.status === ST.REPAIR) return 2;
+  return 3;
+}
+
+function renderEquipment() {
+  const grid = document.getElementById('equipmentGrid');
+  const list = filteredEquipment().sort((a, b) =>
+    statusPriority(a) - statusPriority(b) || a.name.localeCompare(b.name, 'he'));
+
+  if (!state.equipment.length) {
+    grid.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-emoji">🎬</div>
+        <div class="empty-title">עוד אין ציוד במערכת</div>
+        <p>${isAdminMode()
+            ? 'מוסיפים פריט ראשון ומתחילים לעקוב.'
+            : 'רק אדמין יכול להוסיף ציוד (מוגדר בגיליון settings).'}</p>
+        ${isAdminMode() ? '<button class="btn btn-primary" style="margin-top:16px;" onclick="openAddModal()">+ פריט חדש</button>' : ''}
+      </div>`;
+    return;
+  }
+  if (!list.length) {
+    grid.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-emoji">🤷</div>
+        <div class="empty-title">לא נמצא כלום</div>
+        <p>נסו חיפוש אחר או נקו את הסינון.</p>
+      </div>`;
+    return;
+  }
+
+  grid.innerHTML = list.map((eq, i) => {
+    const overdue = isOverdue(eq);
+    const editBtn = isAdminMode()
+      ? `<button class="btn-icon" title="עריכה" onclick="openEditModal('${eq.id}')">✏️</button>`
+      : '';
+    let badge, box = '', actions;
+
+    if (eq.status === ST.OUT) {
+      badge = overdue
+        ? `<span class="badge badge-overdue">באיחור</span>`
+        : `<span class="badge badge-out">מושאל</span>`;
+      box = `
+        <div class="holder-box ${overdue ? 'overdue' : ''}">
+          <span class="holder-name">אצל ${esc(eq.holder)}</span>
+          <div class="holder-detail">
+            מאז ${esc(eq.holderSince)}${eq.holderTime ? ' · ' + esc(eq.holderTime) : ''}
+            ${eq.dueDate ? ' · להחזרה עד ' + esc(eq.dueDate) : ''}
+            ${eq.project ? ' · ' + esc(eq.project) : ''}
+          </div>
+        </div>`;
+      actions = `
+        <button class="btn btn-success" onclick="openCheckinModal('${eq.id}')">↩ החזרה</button>
+        ${editBtn}`;
+    } else if (eq.status === ST.REPAIR) {
+      badge = `<span class="badge badge-repair">בתיקון</span>`;
+      box = `<div class="repair-box">🔧 הפריט בתיקון ולא זמין להשאלה</div>`;
+      actions = `
+        <button class="btn btn-secondary" onclick="finishRepair('${eq.id}')">✓ סיום תיקון</button>
+        ${editBtn}`;
+    } else {
+      badge = `<span class="badge badge-available">זמין</span>`;
+      actions = `
+        <button class="btn btn-primary" onclick="openCheckoutModal('${eq.id}')">← השאלה</button>
+        <button class="btn-icon" title="שליחה לתיקון" onclick="sendToRepair('${eq.id}')">🔧</button>
+        ${editBtn}`;
+    }
+
+    const meta = [eq.brand, eq.serial ? 'S/N ' + eq.serial : ''].filter(Boolean)
+      .map(esc).join(' · ');
+    const tagPill = eq.assetTag ? `<span class="eq-tag">${esc(eq.assetTag)}</span>` : '';
+
+    return `
+      <div class="eq-card" style="animation-delay:${Math.min(i * 30, 300)}ms">
+        <div class="eq-card-top">
+          <span class="eq-category">${catEmoji(eq.category)} ${esc(eq.category)}</span>
+          ${badge}
+        </div>
+        <div>
+          <div class="eq-name">${esc(eq.name)}</div>
+          ${tagPill || meta ? `<div class="eq-meta">${tagPill}${meta ? `<span>${meta}</span>` : ''}</div>` : ''}
+        </div>
+        ${box}
+        ${eq.notes ? `<div class="eq-notes">${esc(eq.notes)}</div>` : ''}
+        <div class="eq-actions">${actions}</div>
+        <button class="eq-history-link" onclick="showItemHistory('${eq.id}')">היסטוריית הפריט ←</button>
+      </div>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════════════════════
+// History
+// ════════════════════════════════════════════════════════════
+const HISTORY_CHIPS = [
+  { key: '',       label: 'הכל' },
+  { key: 'פתוח',   label: 'השאלות פתוחות' },
+  { key: 'הוחזר',  label: 'הוחזרו' },
+];
+
+function renderHistoryChips() {
+  document.getElementById('historyChips').innerHTML = HISTORY_CHIPS.map(c => `
+    <button class="chip ${state.filters.hstatus === c.key ? 'active' : ''}"
+            onclick="state.filters.hstatus = (state.filters.hstatus === '${c.key}') ? '' : '${c.key}'; renderHistoryChips(); renderHistory();">
+      ${c.label}</button>`).join('');
+}
+
+function renderHistory() {
+  const tbody = document.getElementById('historyBody');
+  const needle = state.filters.hq.trim().toLowerCase();
+  const rows = state.history.filter(h => {
+    if (state.filters.hstatus && h.status !== state.filters.hstatus) return false;
+    if (needle) {
+      const hay = [h.equipmentName, h.person, h.project, h.notes, h.recordedBy]
+        .map(x => String(x || '').toLowerCase()).join(' ');
+      if (!hay.includes(needle)) return false;
+    }
+    return true;
+  });
+
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:40px; color:var(--text-muted);">
+      אין רשומות להצגה</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map(h => {
+    const open = h.status === 'פתוח';
+    return `
+      <tr>
+        <td style="font-weight:700;">${esc(h.equipmentName)}</td>
+        <td>${esc(h.person)}</td>
+        <td>${esc(h.project) || '<span style="color:var(--text-muted)">—</span>'}</td>
+        <td style="white-space:nowrap;">${esc(h.checkoutDate)}${h.checkoutTime ? ' · ' + esc(h.checkoutTime) : ''}</td>
+        <td style="white-space:nowrap;">${esc(h.dueDate) || '<span style="color:var(--text-muted)">—</span>'}</td>
+        <td style="white-space:nowrap;">${h.returnDate ? esc(h.returnDate) + (h.returnTime ? ' · ' + esc(h.returnTime) : '') : '<span style="color:var(--text-muted)">—</span>'}</td>
+        <td><span class="badge ${open ? 'badge-open' : 'badge-returned'}">${esc(h.status)}</span></td>
+        <td style="max-width:220px; font-size:0.82rem; color:var(--text-secondary);">${esc(h.notes) || ''}</td>
+        <td style="color:var(--text-muted); font-size:0.8rem;">${esc(userPrefix(h.recordedBy)) || '—'}</td>
+      </tr>`;
+  }).join('');
+}
+
+function showItemHistory(id) {
+  const eq = state.equipment.find(e => e.id === id);
+  const name = eq ? eq.name : '';
+  state.filters.hq = name;
+  document.getElementById('historySearch').value = name;
+  renderHistory();
+  switchTab('history');
+}
+
+function renderDatalists() {
+  document.getElementById('personsList').innerHTML =
+    state.persons.map(p => `<option value="${esc(p)}">`).join('');
+  document.getElementById('projectsList').innerHTML =
+    state.projects.map(p => `<option value="${esc(p)}">`).join('');
+}
+
+// ════════════════════════════════════════════════════════════
+// Modals — generic
+// ════════════════════════════════════════════════════════════
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-backdrop').forEach(bd => {
+  bd.addEventListener('click', e => { if (e.target === bd) bd.classList.remove('open'); });
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop.open')
+    .forEach(m => m.classList.remove('open'));
+});
+
+// ════════════════════════════════════════════════════════════
+// Add / Edit equipment (אדמין)
+// ════════════════════════════════════════════════════════════
+function openAddModal() {
+  state.editingId = null;
+  document.getElementById('eqModalTitle').textContent = 'פריט חדש';
+  document.getElementById('eqName').value = '';
+  document.getElementById('eqCategory').value = CONFIG.CATEGORIES[0].name;
+  document.getElementById('eqBrand').value = '';
+  document.getElementById('eqSerial').value = '';
+  document.getElementById('eqNotes').value = '';
+  document.getElementById('eqDeleteBtn').style.display = 'none';
+  openModal('eqModal');
+  setTimeout(() => document.getElementById('eqName').focus(), 50);
+}
+
+function openEditModal(id) {
+  const eq = state.equipment.find(e => e.id === id);
+  if (!eq) return;
+  state.editingId = id;
+  document.getElementById('eqModalTitle').textContent = eq.assetTag ? 'עריכת פריט · ' + eq.assetTag : 'עריכת פריט';
+  document.getElementById('eqName').value = eq.name;
+  document.getElementById('eqCategory').value = eq.category || CONFIG.CATEGORIES[0].name;
+  document.getElementById('eqBrand').value = eq.brand;
+  document.getElementById('eqSerial').value = eq.serial;
+  document.getElementById('eqNotes').value = eq.notes;
+  document.getElementById('eqDeleteBtn').style.display = '';
+  openModal('eqModal');
+}
+
+async function submitEquipment() {
+  const name = document.getElementById('eqName').value.trim();
+  if (!name) { showToast('חסר שם פריט', 'warning'); return; }
+  const params = {
+    name,
+    category: document.getElementById('eqCategory').value,
+    brand:    document.getElementById('eqBrand').value.trim(),
+    serial:   document.getElementById('eqSerial').value.trim(),
+    notes:    document.getElementById('eqNotes').value.trim(),
+  };
+  const btn = document.getElementById('eqSaveBtn');
+  setBtnLoading(btn, true);
+  try {
+    const res = state.editingId
+      ? await apiCall('api_updateEquipment', { id: state.editingId, ...params })
+      : await apiCall('api_addEquipment', params);
+    if (!res.success) throw new Error(res.message);
+    closeModal('eqModal');
+    showToast(res.message || 'נשמר!', 'success');
+    await refresh();
+  } catch (e) {
+    showToast(e.message, 'error');
+  } finally {
+    setBtnLoading(btn, false, 'שמירה');
+  }
+}
+
+async function removeEquipment() {
+  const eq = state.equipment.find(e => e.id === state.editingId);
+  if (!eq) return;
+  if (!confirm(`למחוק את "${eq.name}" מהמערכת?\n(ההיסטוריה שלו נשמרת בגיליון)`)) return;
+  const btn = document.getElementById('eqDeleteBtn');
+  setBtnLoading(btn, true);
+  try {
+    const res = await apiCall('api_deleteEquipment', { id: state.editingId });
+    if (!res.success) throw new Error(res.message);
+    closeModal('eqModal');
+    showToast(res.message, 'success');
+    await refresh();
+  } catch (e) {
+    showToast(e.message, 'error');
+  } finally {
+    setBtnLoading(btn, false, 'מחיקה');
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// Checkout / Check-in
+// ════════════════════════════════════════════════════════════
+function openCheckoutModal(id) {
+  const eq = state.equipment.find(e => e.id === id);
+  if (!eq) return;
+  state.actionId = id;
+  document.getElementById('checkoutEqName').innerHTML =
+    `${catEmoji(eq.category)} ${esc(eq.name)}${eq.assetTag ? ` <span class="eq-tag">${esc(eq.assetTag)}</span>` : ''}`;
+  document.getElementById('coPerson').value = state.user ? state.user.name : '';
+  document.getElementById('coProject').value = '';
+  document.getElementById('coDueDate').value = '';
+  document.getElementById('coNotes').value = '';
+  openModal('checkoutModal');
+  setTimeout(() => document.getElementById('coPerson').focus(), 50);
+}
+
+async function submitCheckout() {
+  const person = document.getElementById('coPerson').value.trim();
+  if (!person) { showToast('מי לוקח את הציוד? חסר שם', 'warning'); return; }
+  const btn = document.getElementById('coSubmitBtn');
+  setBtnLoading(btn, true);
+  try {
+    const res = await apiCall('api_checkoutEquipment', {
+      equipmentId: state.actionId,
+      person,
+      project: document.getElementById('coProject').value.trim(),
+      dueDate: isoToHeb(document.getElementById('coDueDate').value),
+      notes:   document.getElementById('coNotes').value.trim(),
+    });
+    if (!res.success) throw new Error(res.message);
+    closeModal('checkoutModal');
+    showToast(res.message, 'success');
+    await refresh();
+  } catch (e) {
+    showToast(e.message, 'error');
+  } finally {
+    setBtnLoading(btn, false, 'אישור השאלה');
+  }
+}
+
+function openCheckinModal(id) {
+  const eq = state.equipment.find(e => e.id === id);
+  if (!eq) return;
+  state.actionId = id;
+  document.getElementById('checkinEqName').innerHTML =
+    `${catEmoji(eq.category)} ${esc(eq.name)}${eq.assetTag ? ` <span class="eq-tag">${esc(eq.assetTag)}</span>` : ''} <span style="font-weight:400; color:var(--text-secondary);">· אצל ${esc(eq.holder)}</span>`;
+  document.getElementById('ciNotes').value = '';
+  openModal('checkinModal');
+}
+
+async function submitCheckin() {
+  const btn = document.getElementById('ciSubmitBtn');
+  setBtnLoading(btn, true);
+  try {
+    const res = await apiCall('api_checkinEquipment', {
+      equipmentId: state.actionId,
+      notes: document.getElementById('ciNotes').value.trim(),
+    });
+    if (!res.success) throw new Error(res.message);
+    closeModal('checkinModal');
+    showToast(res.message, 'success');
+    await refresh();
+  } catch (e) {
+    showToast(e.message, 'error');
+  } finally {
+    setBtnLoading(btn, false, '✓ אישור החזרה');
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// Repair status
+// ════════════════════════════════════════════════════════════
+async function sendToRepair(id) {
+  const eq = state.equipment.find(e => e.id === id);
+  if (!eq || !confirm(`לסמן את "${eq.name}" כנמצא בתיקון?`)) return;
+  try {
+    const res = await apiCall('api_setEquipmentStatus', { id, status: ST.REPAIR });
+    if (!res.success) throw new Error(res.message);
+    showToast(res.message, 'success');
+    await refresh();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function finishRepair(id) {
+  const eq = state.equipment.find(e => e.id === id);
+  if (!eq || !confirm(`"${eq.name}" חזר מתיקון וזמין שוב?`)) return;
+  try {
+    const res = await apiCall('api_setEquipmentStatus', { id, status: ST.AVAILABLE });
+    if (!res.success) throw new Error(res.message);
+    showToast(res.message, 'success');
+    await refresh();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+</script>
+
+</body>
+</html>

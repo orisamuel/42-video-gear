@@ -1,21 +1,23 @@
 // ============================================================
-// ציוד וידאו · 42 — Google Apps Script Backend
-// Stack: Google Sheets as DB, single web-app endpoint, action-based router
+// צילה 📷 · מערכת לניהול ציוד צילום · 42 — Google Apps Script
+// ארכיטקטורה: HtmlService מגיש את האפליקציה, google.script.run כתעבורה,
+// Google Sheets כדאטהבייס, זהות משתמש מ-Session (חומת דומיין ארגונית).
 // ============================================================
 //
-// SETUP:
-//   1. Replace SHEET_ID below with the ID of your Google Sheet
-//      (the long string between /d/ and /edit in the Sheets URL).
-//   2. Deploy → New deployment → Web app
-//        - Execute as: Me
-//        - Who has access: Anyone
-//   3. Copy the deployed URL into frontend `config.js` → CONFIG.SCRIPT_URL.
-//   4. EVERY time you edit this file you must redeploy:
-//        Deploy → Manage deployments → ✏ edit → Version: New version → Deploy
-//      (Otherwise the live URL keeps serving the OLD code.)
+// DEPLOYMENT (קריטי!):
+//   Deploy → Manage deployments → ✏️ →
+//     Execute as: Me
+//     Who has access: Anyone within 42creative.co.il   ← זו חומת הכניסה
+//   כל עריכה בקוד מחייבת New version → Deploy (הכתובת לא משתנה).
+//
+// הרשאות:
+//   - צפייה/השאלה/החזרה/תיקון: כל מי שמחובר לחשבון @42creative.co.il
+//   - הוספה/עריכה/מחיקה של ציוד: אימיילים ברשימת adminEmails בגיליון settings
 // ============================================================
 
-const SHEET_ID = 'PASTE_YOUR_SHEET_ID_HERE';
+const SHEET_ID = '1Bw6zGoOiv8jvmAth1rPT6dgB4hnKi4mgypHFUPjVXgE';
+const ALLOWED_DOMAIN = '42creative.co.il';
+const FAVICON_URL = 'https://orisamuel.github.io/42-video-gear/favicon-64.png';
 
 // סטטוסים של פריט ציוד (נשמרים בעברית בגיליון — קריא לבני אדם)
 const ST_AVAILABLE = 'זמין';
@@ -25,6 +27,128 @@ const ST_REPAIR    = 'בתיקון';
 // סטטוסים של רשומת השאלה
 const CO_OPEN     = 'פתוח';
 const CO_RETURNED = 'הוחזר';
+
+// ============================================================
+// WEB APP — הגשת האפליקציה
+// ============================================================
+
+function doGet(e) {
+  if (e && e.parameter && e.parameter.action) {
+    // ה-API הישן בוטל — האפליקציה עברה ל-google.script.run מאחורי חומת הדומיין
+    if (e.parameter.action === 'ping') return jsonResponse({ success: true, version: 'v5' });
+    return jsonResponse({ success: false, message: 'ה-API הציבורי בוטל. צילה זמינה רק דרך האפליקציה.' });
+  }
+  return HtmlService.createHtmlOutputFromFile('app')
+    .setTitle('צילה · ניהול ציוד צילום')
+    .setFaviconUrl(FAVICON_URL)
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+function jsonResponse(data) {
+  return ContentService
+    .createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ============================================================
+// זהות והרשאות — Session של Google (בלי סיסמאות)
+// ============================================================
+
+// מחזיר את המשתמש המחובר, או null אם אין זהות תקינה מהדומיין.
+// בזכות "Execute as Me" + גישה מוגבלת לדומיין, גוגל מזהה את הגולש עבורנו.
+function getUser_() {
+  const email = String(Session.getActiveUser().getEmail() || '').toLowerCase();
+  if (!email || email.indexOf('@' + ALLOWED_DOMAIN) === -1) return null;
+  return {
+    email: email,
+    name: email.split('@')[0],
+    isAdmin: getAdminEmails_().indexOf(email) !== -1
+  };
+}
+
+const NO_AUTH  = { success: false, message: 'אין הרשאה — יש להתחבר עם חשבון 42creative.co.il' };
+const NO_ADMIN = { success: false, message: 'רק אדמין יכול לבצע את הפעולה הזו (מוגדר בגיליון settings)' };
+
+// ============================================================
+// TABLE: SETTINGS
+// Schema: key(0), value(1)
+// adminEmails — רשימת אימיילים מופרדת בפסיקים שמורשים לנהל ציוד
+// ============================================================
+
+const SETTINGS_HEADERS = ['key', 'value'];
+const DEFAULT_ADMIN_EMAILS = 'ori@42creative.co.il';
+
+function getSetting(key) {
+  const sheet = ensureSheet('settings', SETTINGS_HEADERS);
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === key) return String(data[i][1]);
+  }
+  return null;
+}
+
+function getAdminEmails_() {
+  let raw = getSetting('adminEmails');
+  if (raw === null || raw === '') {
+    ensureSheet('settings', SETTINGS_HEADERS).appendRow(['adminEmails', DEFAULT_ADMIN_EMAILS]);
+    raw = DEFAULT_ADMIN_EMAILS;
+  }
+  return raw.split(',').map(function(s) { return s.trim().toLowerCase(); }).filter(String);
+}
+
+// ============================================================
+// API — הפונקציות שהפרונט קורא דרך google.script.run
+// כולן מחזירות { success, message?, ...data } ואוכפות הרשאות.
+// ============================================================
+
+function api_getDashboard() {
+  const user = getUser_();
+  if (!user) return NO_AUTH;
+  const d = getDashboard();
+  d.user = user;
+  return d;
+}
+
+function api_addEquipment(data) {
+  const user = getUser_();
+  if (!user) return NO_AUTH;
+  if (!user.isAdmin) return NO_ADMIN;
+  return addEquipment(data || {});
+}
+
+function api_updateEquipment(data) {
+  const user = getUser_();
+  if (!user) return NO_AUTH;
+  if (!user.isAdmin) return NO_ADMIN;
+  return updateEquipment(data || {});
+}
+
+function api_deleteEquipment(data) {
+  const user = getUser_();
+  if (!user) return NO_AUTH;
+  if (!user.isAdmin) return NO_ADMIN;
+  return deleteEquipment((data || {}).id);
+}
+
+function api_setEquipmentStatus(data) {
+  const user = getUser_();
+  if (!user) return NO_AUTH;
+  return setEquipmentStatus((data || {}).id, (data || {}).status);
+}
+
+function api_checkoutEquipment(data) {
+  const user = getUser_();
+  if (!user) return NO_AUTH;
+  data = data || {};
+  data.recordedBy = user.email;
+  return checkoutEquipment(data);
+}
+
+function api_checkinEquipment(data) {
+  const user = getUser_();
+  if (!user) return NO_AUTH;
+  return checkinEquipment(data || {});
+}
 
 // ============================================================
 // HELPERS
@@ -39,7 +163,6 @@ function getSheet(name) {
 }
 
 // Auto-creates the sheet with the given headers if it doesn't exist.
-// ALWAYS use this instead of getSheet() inside write functions.
 function ensureSheet(name, headers) {
   const ss = getSpreadsheet();
   let sheet = ss.getSheetByName(name);
@@ -60,7 +183,6 @@ function fmtTime(d) {
 }
 
 // Normalize any date value (Date object or string) to dd/MM/yyyy.
-// Sheets sometimes returns Date objects, sometimes strings — this handles both.
 function normalizeDate(v) {
   if (!v && v !== 0) return '';
   const s = String(v);
@@ -85,12 +207,6 @@ function normalizeTime(v) {
   return s;
 }
 
-function jsonResponse(data) {
-  return ContentService
-    .createTextOutput(JSON.stringify(data))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
 // Find a row by value in a given column. Returns row index (1-based) or -1.
 function findRow(sheet, colIndex, value) {
   const data = sheet.getDataRange().getValues();
@@ -105,46 +221,6 @@ function newId() {
 }
 
 // ============================================================
-// SETTINGS + ADMIN (הרשאות)
-// Schema: key(0), value(1)
-// סיסמת האדמין נשמרת בגיליון settings בשורה adminPassword.
-// ברירת מחדל: 4242 — מומלץ לשנות ישירות בגיליון.
-// ============================================================
-
-const SETTINGS_HEADERS = ['key', 'value'];
-const DEFAULT_ADMIN_PASSWORD = '4242';
-
-function getSetting(key) {
-  const sheet = ensureSheet('settings', SETTINGS_HEADERS);
-  const data = sheet.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][0]) === key) return String(data[i][1]);
-  }
-  return null;
-}
-
-function getAdminPassword() {
-  let pw = getSetting('adminPassword');
-  if (pw === null || pw === '') {
-    ensureSheet('settings', SETTINGS_HEADERS).appendRow(['adminPassword', DEFAULT_ADMIN_PASSWORD]);
-    pw = DEFAULT_ADMIN_PASSWORD;
-  }
-  return pw;
-}
-
-function isAdmin(key) {
-  return String(key || '') !== '' && String(key) === getAdminPassword();
-}
-
-// מחזיר אובייקט שגיאה אם אין הרשאה, או null אם הכל תקין
-function requireAdmin(p) {
-  if (!isAdmin(p.adminKey)) {
-    return { success: false, authRequired: true, message: 'רק אדמין יכול לבצע את הפעולה הזו' };
-  }
-  return null;
-}
-
-// ============================================================
 // TABLE: EQUIPMENT (ציוד)
 // Schema: id(0), name(1), category(2), brand(3), serial(4),
 //         notes(5), status(6), active(7), addedDate(8), assetTag(9)
@@ -153,7 +229,7 @@ function requireAdmin(p) {
 const EQUIPMENT_HEADERS = ['id', 'name', 'category', 'brand', 'serial', 'notes', 'status', 'active', 'addedDate', 'assetTag'];
 
 // מק״ט פנימי רץ: 42-0001, 42-0002...
-// כולל שורות שנמחקו (active=לא) — מספר לא ממוחזר לעולם, כדי שמדבקה ישנה לא תצביע על פריט אחר.
+// כולל שורות שנמחקו (active=לא) — מספר לא ממוחזר לעולם.
 function nextAssetTag(sheet) {
   const data = sheet.getDataRange().getValues();
   let max = 0;
@@ -260,12 +336,12 @@ function setEquipmentStatus(id, status) {
 // TABLE: CHECKOUTS (השאלות)
 // Schema: id(0), equipmentId(1), equipmentName(2), person(3), project(4),
 //         checkoutDate(5), checkoutTime(6), dueDate(7),
-//         returnDate(8), returnTime(9), status(10), notes(11)
+//         returnDate(8), returnTime(9), status(10), notes(11), recordedBy(12)
 // ============================================================
 
 const CHECKOUTS_HEADERS = ['id', 'equipmentId', 'equipmentName', 'person', 'project',
                            'checkoutDate', 'checkoutTime', 'dueDate',
-                           'returnDate', 'returnTime', 'status', 'notes'];
+                           'returnDate', 'returnTime', 'status', 'notes', 'recordedBy'];
 
 function checkoutRowToObj(r) {
   return {
@@ -280,7 +356,8 @@ function checkoutRowToObj(r) {
     returnDate:    normalizeDate(r[8]),
     returnTime:    normalizeTime(r[9]),
     status:        String(r[10] || ''),
-    notes:         String(r[11] || '')
+    notes:         String(r[11] || ''),
+    recordedBy:    String(r[12] || '')
   };
 }
 
@@ -333,7 +410,8 @@ function checkoutEquipment(data) {
       data.dueDate || '',
       '', '',
       CO_OPEN,
-      data.notes || ''
+      data.notes || '',
+      data.recordedBy || ''
     ]);
     eqSheet.getRange(eqRow, 7).setValue(ST_OUT);
     return { success: true, message: eq.name + ' הושאל ל' + data.person, id: id };
@@ -433,79 +511,7 @@ function getDashboard() {
 // MAINTENANCE
 // ============================================================
 
-// Set up a time-based trigger to call this every 10 min — prevents cold starts.
-// Apps Script editor → Triggers → Add Trigger → keepWarm → Time-driven → Every 10 min
+// Time-based trigger runs this every 10 min — prevents cold starts.
 function keepWarm() {
   Logger.log('keep-warm ' + new Date().toISOString());
-}
-
-// ============================================================
-// HTTP ROUTER — single endpoint, switches on `action` parameter
-// ============================================================
-
-function doGet(e)  { return doPost(e); }
-function doPost(e) {
-  try {
-    if (!e || !e.parameter) return jsonResponse({ success: false, message: 'No parameters' });
-    const action = e.parameter.action;
-    const p = e.parameter;
-
-    switch (action) {
-
-      case 'ping':
-        return jsonResponse({ success: true, version: 'v1' });
-
-      // ── Dashboard ─────────────────────────────────────────
-      case 'getDashboard':
-        return jsonResponse(getDashboard());
-
-      // ── Auth ──────────────────────────────────────────────
-      case 'validateAdmin':
-        return jsonResponse(isAdmin(p.password)
-          ? { success: true, message: 'מצב אדמין פעיל' }
-          : { success: false, message: 'סיסמה שגויה' });
-
-      // ── Equipment (אדמין בלבד) ────────────────────────────
-      case 'addEquipment': {
-        const authErr = requireAdmin(p);
-        if (authErr) return jsonResponse(authErr);
-        return jsonResponse(addEquipment({
-          name: p.name, category: p.category, brand: p.brand,
-          serial: p.serial, notes: p.notes
-        }));
-      }
-      case 'updateEquipment': {
-        const authErr = requireAdmin(p);
-        if (authErr) return jsonResponse(authErr);
-        return jsonResponse(updateEquipment({
-          id: p.id, name: p.name, category: p.category, brand: p.brand,
-          serial: p.serial, notes: p.notes
-        }));
-      }
-      case 'deleteEquipment': {
-        const authErr = requireAdmin(p);
-        if (authErr) return jsonResponse(authErr);
-        return jsonResponse(deleteEquipment(p.id));
-      }
-      case 'setEquipmentStatus':
-        return jsonResponse(setEquipmentStatus(p.id, p.status));
-
-      // ── Checkouts ─────────────────────────────────────────
-      case 'checkoutEquipment':
-        return jsonResponse(checkoutEquipment({
-          equipmentId: p.equipmentId, person: p.person,
-          project: p.project, dueDate: p.dueDate, notes: p.notes
-        }));
-      case 'checkinEquipment':
-        return jsonResponse(checkinEquipment({
-          equipmentId: p.equipmentId, notes: p.notes
-        }));
-
-      default:
-        return jsonResponse({ success: false, message: 'Unknown action: ' + action });
-    }
-  } catch (e) {
-    Logger.log('doPost error: ' + e);
-    return jsonResponse({ success: false, message: e.toString() });
-  }
 }
