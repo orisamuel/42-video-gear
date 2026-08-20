@@ -6,14 +6,17 @@
 
 | מה | איפה |
 |---|---|
-| **האפליקציה** | https://script.google.com/a/macros/42creative.co.il/s/AKfycbwYpBTjZV-ONyKbpL9OsyirMDLVjOpMphNEvIC-CB4wg1QgcaHrVvg_Rnb1rGytKYjSBA/exec |
-| **קישור קצר (מפנה אוטומטית)** | https://orisamuel.github.io/42-video-gear/ |
+| **האפליקציה (הכתובת לצוות)** | https://orisamuel.github.io/42-video-gear/ |
+| כתובת ה-Web App הישירה (אם ה-iframe לא נטען) | https://script.google.com/a/macros/42creative.co.il/s/AKfycbwYpBTjZV-ONyKbpL9OsyirMDLVjOpMphNEvIC-CB4wg1QgcaHrVvg_Rnb1rGytKYjSBA/exec |
 | **הדאטהבייס (Google Sheet)** | https://docs.google.com/spreadsheets/d/1Bw6zGoOiv8jvmAth1rPT6dgB4hnKi4mgypHFUPjVXgE/edit |
 | **הבאקאנד (Apps Script)** | https://script.google.com/home/projects/1gwi2lpMyxrQY0LymVL6gVCARh98E2odBsts-781ZXzuU4i7Ixc6M6pMa/edit |
 
 ## ארכיטקטורה (v5+)
 
 ```
+GitHub Pages (הכתובת היפה) ──► iframe מסך-מלא
+        │
+        ▼
 Google Login Wall (רק דומיין 42creative.co.il)
         │
         ▼
@@ -33,7 +36,9 @@ Google Sheet: equipment · checkouts · settings
 ## הרשאות
 
 - **צפייה / השאלה / החזרה / תיקון:** כל מי שמחובר עם חשבון `@42creative.co.il`.
-- **הוספה / עריכה / מחיקה של ציוד:** רק אימיילים ברשימת `adminEmails` בגיליון `settings` (מופרדים בפסיקים). עריכה בגיליון נכנסת לתוקף מיידית.
+- **הוספה / עריכה / מחיקה של ציוד:** אדמינים בלבד.
+- **ניהול אדמינים מתוך האפליקציה:** לוחצים על שם המשתמש בכותרת ← נפתח פאנל "החשבון שלי · ניהול" עם רשימת האדמינים, הוספה והסרה. (הרשימה שמורה גם בגיליון settings ← adminEmails.)
+- **התנתקות / החלפת חשבון:** מתוך אותו פאנל.
 
 ## עדכון המערכת (clasp — שיטת העבודה)
 
