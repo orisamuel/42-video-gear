@@ -640,9 +640,10 @@ button { cursor: pointer; font-family: inherit; border: none; outline: none; }
         השינויים נכנסים לתוקף מיידית. הרשימה שמורה בגיליון settings.
       </p>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" style="flex-wrap:wrap;">
       <button class="btn btn-secondary" onclick="closeModal('userModal')">סגירה</button>
-      <button class="btn btn-danger" style="margin-inline-start:auto;" onclick="switchAccount()">🚪 התנתקות / החלפת חשבון</button>
+      <button class="btn btn-secondary" onclick="switchAccount()">🔄 החלפת חשבון</button>
+      <button class="btn btn-danger" style="margin-inline-start:auto;" onclick="logoutGoogle()">🚪 התנתקות</button>
     </div>
   </div>
 </div>
@@ -966,11 +967,40 @@ async function addAdmin() {
   }
 }
 
-// התנתקות = בחירת חשבון גוגל אחר וחזרה לאפליקציה
-// (continue חייב להיות כתובת של גוגל, לכן חוזרים ישירות ל-exec)
+// ── החלפת חשבון / התנתקות ──────────────────────────────────
+// זרימה: פופאפ קטן לבחירת חשבון/התנתקות ← כשנסגר, צילה מרעננת את עצמה
+// אוטומטית עם הזהות החדשה, בלי לעזוב את הכתובת היפה.
+const EXEC_URL = 'https://script.google.com/a/macros/42creative.co.il/s/AKfycbwYpBTjZV-ONyKbpL9OsyirMDLVjOpMphNEvIC-CB4wg1QgcaHrVvg_Rnb1rGytKYjSBA/exec';
+
+function requestTopReload() {
+  try { window.top.postMessage({ tzila: 'reload' }, '*'); } catch (e) {}
+  // fallback כשלא עטופים ב-GitHub Pages: מרעננים את המסגרת של האפליקציה עצמה
+  setTimeout(() => { try { location.reload(); } catch (e) {} }, 800);
+}
+
+function accountFlow(url, msg) {
+  const w = window.open(url, 'tzila_auth', 'width=520,height=660');
+  if (!w) { showToast('הדפדפן חסם את החלון — אפשרו חלונות קופצים', 'warning'); return; }
+  closeModal('userModal');
+  showToast(msg, 'info', 7000);
+  const t = setInterval(() => {
+    if (w.closed) { clearInterval(t); requestTopReload(); }
+  }, 600);
+}
+
 function switchAccount() {
-  const appUrl = 'https://script.google.com/a/macros/42creative.co.il/s/AKfycbwYpBTjZV-ONyKbpL9OsyirMDLVjOpMphNEvIC-CB4wg1QgcaHrVvg_Rnb1rGytKYjSBA/exec';
-  window.open('https://accounts.google.com/AccountChooser?continue=' + encodeURIComponent(appUrl), '_blank');
+  accountFlow(
+    'https://accounts.google.com/AccountChooser?continue=' + encodeURIComponent(EXEC_URL + '?authdone=1'),
+    'בחרו חשבון בחלון שנפתח וסגרו אותו — צילה תתרענן לבד'
+  );
+}
+
+function logoutGoogle() {
+  if (!confirm('להתנתק?\nשימו לב: התנתקות מנתקת אתכם מכל חשבונות Google בדפדפן הזה (Gmail, Drive וכו\') — ככה גוגל עובד.')) return;
+  accountFlow(
+    'https://accounts.google.com/Logout',
+    'מתנתקים בחלון שנפתח — סגרו אותו וצילה תתרענן'
+  );
 }
 
 async function removeAdmin(email) {

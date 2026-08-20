@@ -43,6 +43,11 @@
         onload="setTimeout(() => document.getElementById('loader').classList.add('hidden'), 600)"></iframe>
 
 <script>
+  // האפליקציה מבקשת רענון אחרי החלפת חשבון / התנתקות
+  window.addEventListener('message', function (ev) {
+    if (ev && ev.data && ev.data.tzila === 'reload') location.reload();
+  });
+
   // אם אחרי 8 שניות עדיין לא נטען — כנראה צריך להתחבר לחשבון 42 (דפי התחברות של גוגל לא נטענים בתוך iframe)
   setTimeout(function () {
     var loader = document.getElementById('loader');

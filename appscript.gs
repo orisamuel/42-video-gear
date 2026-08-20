@@ -33,6 +33,14 @@ const CO_RETURNED = 'הוחזר';
 // ============================================================
 
 function doGet(e) {
+  // דף נחיתה קטן אחרי החלפת חשבון (נפתח בפופאפ מתוך צילה)
+  if (e && e.parameter && e.parameter.authdone) {
+    return HtmlService.createHtmlOutput(
+      '<div style="font-family:Heebo,sans-serif;direction:rtl;background:#0A0A0B;color:#FAFAFA;position:fixed;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;">' +
+      '<div><div style="font-size:3.5rem;">✅</div><h2 style="margin:12px 0 6px;">מחוברים!</h2>' +
+      '<p style="color:#A1A1AA;">סוגרים את החלון הזה — וצילה תרענן את עצמה לבד.</p></div></div>'
+    ).setTitle('צילה · מחוברים');
+  }
   if (e && e.parameter && e.parameter.action) {
     // ה-API הישן בוטל — האפליקציה עברה ל-google.script.run מאחורי חומת הדומיין
     if (e.parameter.action === 'ping') return jsonResponse({ success: true, version: 'v5' });
