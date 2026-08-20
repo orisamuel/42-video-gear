@@ -453,10 +453,19 @@ function checkinEquipment(data) {
 // DASHBOARD — קריאה אחת שמחזירה את כל מה שהעמוד צריך
 // ============================================================
 
+// משלים כותרות חדשות בגיליונות קיימים (מיגרציה שקטה של הסכמה)
+function syncHeaders_(sheet, headers) {
+  if (sheet.getLastColumn() < headers.length) {
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  }
+}
+
 function getDashboard() {
   try {
     const eqSheet = ensureSheet('equipment', EQUIPMENT_HEADERS);
     const coSheet = ensureSheet('checkouts', CHECKOUTS_HEADERS);
+    syncHeaders_(eqSheet, EQUIPMENT_HEADERS);
+    syncHeaders_(coSheet, CHECKOUTS_HEADERS);
 
     const coData = coSheet.getDataRange().getValues();
     const openByEquipment = {};
