@@ -407,6 +407,11 @@ button { cursor: pointer; font-family: inherit; border: none; outline: none; }
   outline: none; border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-glow);
 }
+.form-hint { margin-top: 5px; font-size: 0.75rem; color: var(--text-muted); }
+.form-input.input-locked {
+  background: var(--glass-bg); color: var(--text-secondary);
+  cursor: not-allowed; pointer-events: none;
+}
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 @media (max-width: 480px) { .form-row { grid-template-columns: 1fr; } }
 
@@ -685,9 +690,10 @@ button { cursor: pointer; font-family: inherit; border: none; outline: none; }
     </div>
     <div class="modal-eq-name" id="checkoutEqName"></div>
     <div class="form-group">
-      <label class="form-label">מי לוקח? <span class="req">*</span></label>
+      <label class="form-label">מי לוקח?</label>
       <input class="form-input" id="coPerson" type="text" list="personsList" placeholder="שם מלא">
       <datalist id="personsList"></datalist>
+      <div class="form-hint" id="coPersonHint"></div>
     </div>
     <div class="form-row">
       <div class="form-group">
@@ -1442,12 +1448,23 @@ function openCheckoutModal(id) {
   state.actionId = id;
   document.getElementById('checkoutEqName').innerHTML =
     `${eq.imageId ? `<img class="modal-eq-thumb" src="${driveThumb(eq.imageId, 200)}">` : catEmoji(eq.category)} ${esc(eq.name)}${eq.assetTag ? ` <span class="eq-tag">${esc(eq.assetTag)}</span>` : ''}`;
-  document.getElementById('coPerson').value = state.user ? state.user.name : '';
+  const personEl = document.getElementById('coPerson');
+  const personHint = document.getElementById('coPersonHint');
+  personEl.value = state.user ? state.user.name : '';
+  if (isAdminMode()) {
+    personEl.readOnly = false;
+    personEl.classList.remove('input-locked');
+    personHint.textContent = 'כאדמין אפשר לרשום את הציוד על שם מישהו אחר';
+  } else {
+    personEl.readOnly = true;
+    personEl.classList.add('input-locked');
+    personHint.textContent = 'נרשם אוטומטית על שם המשתמש המחובר';
+  }
   document.getElementById('coProject').value = '';
   document.getElementById('coDueDate').value = '';
   document.getElementById('coNotes').value = '';
   openModal('checkoutModal');
-  setTimeout(() => document.getElementById('coPerson').focus(), 50);
+  setTimeout(() => document.getElementById(isAdminMode() ? 'coPerson' : 'coProject').focus(), 50);
 }
 
 async function submitCheckout() {

@@ -201,6 +201,8 @@ function api_checkoutEquipment(data) {
   if (!user) return NO_AUTH;
   data = data || {};
   data.recordedBy = user.email;
+  // "מי לוקח" נקבע לפי המשתמש המחובר; רק אדמין רשאי לרשום על שם מישהו אחר.
+  if (!user.isAdmin || !String(data.person || '').trim()) data.person = user.name;
   return checkoutEquipment(data);
 }
 
