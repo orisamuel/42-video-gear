@@ -211,6 +211,54 @@ function api_checkinEquipment(data) {
 }
 
 // ============================================================
+// IMAGES — תמונות מוצר נשמרות ב-Drive של בעל הסקריפט
+// התיקייה משותפת לצפייה לדומיין בלבד — מוגנת כמו שאר המערכת.
+// ============================================================
+
+function getImagesFolder_() {
+  const saved = getSetting('imagesFolderId');
+  if (saved) {
+    try { return DriveApp.getFolderById(saved); } catch (e) {}
+  }
+  const folder = DriveApp.createFolder('צילה - תמונות ציוד');
+  try {
+    folder.setSharing(DriveApp.Access.DOMAIN_WITH_LINK, DriveApp.Permission.VIEW);
+  } catch (e) {
+    try { folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e2) {}
+  }
+  setSetting_('imagesFolderId', folder.getId());
+  return folder;
+}
+
+// העלאת תמונה (אדמין בלבד). מקבלת JPEG מכווץ כ-base64, מחזירה fileId.
+function api_uploadImage(data) {
+  const user = getUser_();
+  if (!user) return NO_AUTH;
+  if (!user.isAdmin) return NO_ADMIN;
+  try {
+    data = data || {};
+    if (!data.base64) return { success: false, message: 'לא התקבלה תמונה' };
+    if (data.base64.length > 2500000) return { success: false, message: 'התמונה גדולה מדי (מקסימום ~1.8MB)' };
+    const blob = Utilities.newBlob(
+      Utilities.base64Decode(data.base64),
+      data.mimeType || 'image/jpeg',
+      'tzila-' + newId() + '.jpg'
+    );
+    const file = getImagesFolder_().createFile(blob);
+    return { success: true, fileId: file.getId() };
+  } catch (e) {
+    return { success: false, message: e.toString() };
+  }
+}
+
+// מריצים פעם אחת מהעורך אחרי הוספת הרשאת Drive — לאישור ההרשאה
+function authorizeOnce() {
+  Logger.log('Drive OK: ' + DriveApp.getRootFolder().getName());
+  Logger.log('Sheet OK: ' + getSpreadsheet().getName());
+  Logger.log('Images folder: ' + getImagesFolder_().getName());
+}
+
+// ============================================================
 // HELPERS
 // ============================================================
 
@@ -286,7 +334,7 @@ function newId() {
 //         notes(5), status(6), active(7), addedDate(8), assetTag(9)
 // ============================================================
 
-const EQUIPMENT_HEADERS = ['id', 'name', 'category', 'brand', 'serial', 'notes', 'status', 'active', 'addedDate', 'assetTag'];
+const EQUIPMENT_HEADERS = ['id', 'name', 'category', 'brand', 'serial', 'notes', 'status', 'active', 'addedDate', 'assetTag', 'imageId'];
 
 // מק״ט פנימי רץ: 42-0001, 42-0002...
 // כולל שורות שנמחקו (active=לא) — מספר לא ממוחזר לעולם.
@@ -310,7 +358,8 @@ function equipmentRowToObj(r) {
     notes:     String(r[5] || ''),
     status:    String(r[6] || ST_AVAILABLE),
     addedDate: normalizeDate(r[8]),
-    assetTag:  String(r[9] || '')
+    assetTag:  String(r[9] || ''),
+    imageId:   String(r[10] || '')
   };
 }
 
@@ -330,7 +379,8 @@ function addEquipment(data) {
       ST_AVAILABLE,
       'כן',
       fmtDate(new Date()),
-      tag
+      tag,
+      data.imageId || ''
     ]);
     return { success: true, message: 'הפריט נוסף · מק״ט ' + tag, id: id, assetTag: tag };
   } catch (e) {
@@ -349,6 +399,14 @@ function updateEquipment(data) {
     if (data.brand !== undefined)    sheet.getRange(row, 4).setValue(data.brand);
     if (data.serial !== undefined)   sheet.getRange(row, 5).setValue(data.serial);
     if (data.notes !== undefined)    sheet.getRange(row, 6).setValue(data.notes);
+    if (data.imageId !== undefined) {
+      const oldId = String(sheet.getRange(row, 11).getValue() || '');
+      if (oldId && oldId !== data.imageId) {
+        // התמונה הוחלפה/הוסרה — הישנה לאשפת ה-Drive
+        try { DriveApp.getFileById(oldId).setTrashed(true); } catch (e) {}
+      }
+      sheet.getRange(row, 11).setValue(data.imageId);
+    }
     return { success: true, message: 'הפריט עודכן' };
   } catch (e) {
     return { success: false, message: e.toString() };

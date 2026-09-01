@@ -302,6 +302,23 @@ button { cursor: pointer; font-family: inherit; border: none; outline: none; }
   font-size: 0.82rem; color: var(--text-secondary);
   background: var(--glass-bg); border-radius: var(--radius-sm); padding: 7px 10px;
 }
+/* תמונת מוצר על הכרטיס */
+.eq-photo-wrap {
+  margin: -18px -18px 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  overflow: hidden; cursor: zoom-in;
+  background: var(--glass-bg);
+}
+.eq-photo { width: 100%; height: 150px; object-fit: cover; display: block; }
+/* תמונה בטופס עריכה */
+.img-preview-wrap { display: flex; align-items: center; gap: 12px; }
+.img-preview {
+  width: 84px; height: 84px; flex-shrink: 0;
+  border-radius: var(--radius-md); border: 1px solid var(--glass-border);
+  background: var(--glass-bg); overflow: hidden;
+  display: flex; align-items: center; justify-content: center; font-size: 1.6rem;
+}
+.modal-eq-thumb { width: 36px; height: 36px; object-fit: cover; border-radius: 7px; flex-shrink: 0; }
 
 .badge {
   display: inline-flex; align-items: center; gap: 6px;
@@ -612,6 +629,17 @@ button { cursor: pointer; font-family: inherit; border: none; outline: none; }
       <label class="form-label">הערות</label>
       <textarea class="form-textarea" id="eqNotes" rows="2" placeholder="מצב, אביזרים נלווים, כל דבר שכדאי לדעת..."></textarea>
     </div>
+    <div class="form-group">
+      <label class="form-label">תמונת המוצר</label>
+      <div class="img-preview-wrap">
+        <div class="img-preview" id="eqImgPreview">📷</div>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <button type="button" class="btn btn-secondary" onclick="document.getElementById('eqImgFile').click()">📷 בחירת תמונה</button>
+          <button type="button" class="btn btn-danger" id="eqImgRemoveBtn" style="display:none;" onclick="clearEqImage()">הסרת תמונה</button>
+        </div>
+        <input type="file" id="eqImgFile" accept="image/*" capture="environment" style="display:none;" onchange="handleImageFile(this)">
+      </div>
+    </div>
     <div class="modal-footer">
       <button class="btn btn-primary" id="eqSaveBtn" onclick="submitEquipment()">שמירה</button>
       <button class="btn btn-secondary" onclick="closeModal('eqModal')">ביטול</button>
@@ -805,6 +833,8 @@ const state = {
   filters: { q: '', status: '', category: '', hq: '', hstatus: '' },
   editingId: null,
   actionId: null,
+  pendingImage: null,   // base64 של תמונה חדשה שנבחרה
+  imageCleared: false,  // המשתמש הסיר את התמונה
 };
 
 // ════════════════════════════════════════════════════════════
@@ -840,6 +870,46 @@ function setBtnLoading(btn, loading, textWhenDone) {
 }
 function isAdminMode() { return !!(state.user && state.user.isAdmin); }
 function userPrefix(email) { return String(email || '').split('@')[0]; }
+function driveThumb(id, w) { return 'https://drive.google.com/thumbnail?id=' + id + '&sz=w' + (w || 800); }
+
+// ── תמונת מוצר: בחירה, כיווץ בדפדפן, תצוגה מקדימה ──────────
+function setImgPreview(src) {
+  document.getElementById('eqImgPreview').innerHTML = src
+    ? `<img src="${src}" style="width:100%; height:100%; object-fit:cover;">`
+    : '📷';
+  document.getElementById('eqImgRemoveBtn').style.display = src ? '' : 'none';
+}
+
+function clearEqImage() {
+  state.pendingImage = null;
+  state.imageCleared = true;
+  document.getElementById('eqImgFile').value = '';
+  setImgPreview('');
+}
+
+function handleImageFile(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 900; // מספיק לכרטיס, שומר על העלאה מהירה
+      const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * scale);
+      c.height = Math.round(img.height * scale);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      const dataUrl = c.toDataURL('image/jpeg', 0.82);
+      state.pendingImage = dataUrl.split(',')[1];
+      state.imageCleared = false;
+      setImgPreview(dataUrl);
+    };
+    img.onerror = () => showToast('הקובץ אינו תמונה תקינה', 'warning');
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
 
 // ════════════════════════════════════════════════════════════
 // Init
@@ -1165,9 +1235,15 @@ function renderEquipment() {
     const meta = [eq.brand, eq.serial ? 'S/N ' + eq.serial : ''].filter(Boolean)
       .map(esc).join(' · ');
     const tagPill = eq.assetTag ? `<span class="eq-tag">${esc(eq.assetTag)}</span>` : '';
+    const photo = eq.imageId
+      ? `<div class="eq-photo-wrap" title="לתצוגה מלאה" onclick="window.open('https://drive.google.com/file/d/${eq.imageId}/view', '_blank')">
+           <img class="eq-photo" loading="lazy" src="${driveThumb(eq.imageId, 800)}" alt="${esc(eq.name)}">
+         </div>`
+      : '';
 
     return `
       <div class="eq-card" style="animation-delay:${Math.min(i * 30, 300)}ms">
+        ${photo}
         <div class="eq-card-top">
           <span class="eq-category">${catEmoji(eq.category)} ${esc(eq.category)}</span>
           ${badge}
@@ -1277,6 +1353,10 @@ function openAddModal() {
   document.getElementById('eqSerial').value = '';
   document.getElementById('eqNotes').value = '';
   document.getElementById('eqDeleteBtn').style.display = 'none';
+  state.pendingImage = null;
+  state.imageCleared = false;
+  document.getElementById('eqImgFile').value = '';
+  setImgPreview('');
   openModal('eqModal');
   setTimeout(() => document.getElementById('eqName').focus(), 50);
 }
@@ -1292,6 +1372,10 @@ function openEditModal(id) {
   document.getElementById('eqSerial').value = eq.serial;
   document.getElementById('eqNotes').value = eq.notes;
   document.getElementById('eqDeleteBtn').style.display = '';
+  state.pendingImage = null;
+  state.imageCleared = false;
+  document.getElementById('eqImgFile').value = '';
+  setImgPreview(eq.imageId ? driveThumb(eq.imageId, 300) : '');
   openModal('eqModal');
 }
 
@@ -1308,6 +1392,14 @@ async function submitEquipment() {
   const btn = document.getElementById('eqSaveBtn');
   setBtnLoading(btn, true);
   try {
+    // העלאת תמונה חדשה (אם נבחרה) לפני השמירה
+    if (state.pendingImage) {
+      const up = await apiCall('api_uploadImage', { base64: state.pendingImage, mimeType: 'image/jpeg' });
+      if (!up.success) throw new Error(up.message);
+      params.imageId = up.fileId;
+    } else if (state.imageCleared) {
+      params.imageId = '';
+    }
     const res = state.editingId
       ? await apiCall('api_updateEquipment', { id: state.editingId, ...params })
       : await apiCall('api_addEquipment', params);
@@ -1349,7 +1441,7 @@ function openCheckoutModal(id) {
   if (!eq) return;
   state.actionId = id;
   document.getElementById('checkoutEqName').innerHTML =
-    `${catEmoji(eq.category)} ${esc(eq.name)}${eq.assetTag ? ` <span class="eq-tag">${esc(eq.assetTag)}</span>` : ''}`;
+    `${eq.imageId ? `<img class="modal-eq-thumb" src="${driveThumb(eq.imageId, 200)}">` : catEmoji(eq.category)} ${esc(eq.name)}${eq.assetTag ? ` <span class="eq-tag">${esc(eq.assetTag)}</span>` : ''}`;
   document.getElementById('coPerson').value = state.user ? state.user.name : '';
   document.getElementById('coProject').value = '';
   document.getElementById('coDueDate').value = '';
@@ -1387,7 +1479,7 @@ function openCheckinModal(id) {
   if (!eq) return;
   state.actionId = id;
   document.getElementById('checkinEqName').innerHTML =
-    `${catEmoji(eq.category)} ${esc(eq.name)}${eq.assetTag ? ` <span class="eq-tag">${esc(eq.assetTag)}</span>` : ''} <span style="font-weight:400; color:var(--text-secondary);">· אצל ${esc(eq.holder)}</span>`;
+    `${eq.imageId ? `<img class="modal-eq-thumb" src="${driveThumb(eq.imageId, 200)}">` : catEmoji(eq.category)} ${esc(eq.name)}${eq.assetTag ? ` <span class="eq-tag">${esc(eq.assetTag)}</span>` : ''} <span style="font-weight:400; color:var(--text-secondary);">· אצל ${esc(eq.holder)}</span>`;
   document.getElementById('ciNotes').value = '';
   openModal('checkinModal');
 }
