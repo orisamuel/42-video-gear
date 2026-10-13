@@ -1,0 +1,4 @@
+# deploy.sh copies appscript.gs and app.html here before clasp push.
+# The only sources are appscript.gs and app.html in the repo root.
+apps-script/*.js
+apps-script/*.html

@@ -42,11 +42,15 @@ Google Sheet: equipment · checkouts · settings
 
 ## עדכון המערכת (clasp — שיטת העבודה)
 
-הפרויקט מחובר ל-[clasp](https://github.com/google/clasp), ה-CLI הרשמי של Apps Script. עדכון קוד:
+הפרויקט מחובר ל-[clasp](https://github.com/google/clasp), ה-CLI הרשמי של Apps Script. עורכים את `appscript.gs` ואת `app.html` בשורש, ואז:
 
 ```bash
-# בתיקייה עם .clasp.json שמצביע על scriptId 1gwi2lpMyxrQY0LymVL6gVCARh98E2odBsts-781ZXzuU4i7Ixc6M6pMa
-# הקבצים: קוד.js (מתוך appscript.gs), app.html, appsscript.json
+./deploy.sh "תיאור הגרסה"
+```
+
+הסקריפט מעתיק אותם ל-`apps-script/` (בשם `קוד.js` ו-`app.html`), מריץ `clasp push -f`, ומעדכן את אותה פריסה, כך שהכתובת לא משתנה:
+
+```bash
 npx @google/clasp@2.4.2 push -f
 npx @google/clasp@2.4.2 deploy -i AKfycbwYpBTjZV-ONyKbpL9OsyirMDLVjOpMphNEvIC-CB4wg1QgcaHrVvg_Rnb1rGytKYjSBA -d "תיאור הגרסה"
 ```
@@ -58,10 +62,14 @@ npx @google/clasp@2.4.2 deploy -i AKfycbwYpBTjZV-ONyKbpL9OsyirMDLVjOpMphNEvIC-CB
 
 | קובץ | תפקיד |
 |---|---|
-| `appscript.gs` | הבאקאנד — נדחף כ-`קוד.js` |
-| `app.html` | האפליקציה המלאה (HTML+CSS+JS) — מוגשת ע"י HtmlService |
-| `index.html` | דף הפניה ב-GitHub Pages לכתובת החדשה |
-| `favicon.svg` / `favicon-64.png` | דמות צילה — הלוגו והאייקון בלשונית |
+| `appscript.gs` | הבאקאנד, נדחף כ-`קוד.js`. המקור היחיד של קוד השרת |
+| `app.html` | האפליקציה המלאה (HTML+CSS+JS), מוגשת ע"י HtmlService. המקור היחיד שלה |
+| `deploy.sh` | פריסה: העתקה ל-`apps-script/`, push ועדכון הפריסה הקיימת |
+| `apps-script/` | תיקיית clasp: `.clasp.json` ו-`appsscript.json` (הגדרות הפריסה). העותקים ש-`deploy.sh` מעתיק לכאן לא נשמרים בגיט |
+| `docs/` | **האתר ב-GitHub Pages, ורק הוא:** `index.html` (העטיפה עם ה-iframe) והאייקונים |
+| `docs/favicon.svg` / `docs/favicon-64.png` | דמות צילה, הלוגו והאייקון בלשונית. `favicon-64.png` משמש גם את Apps Script |
+
+GitHub Pages מוגש מתיקיית `docs` (deploy from branch, `main`, `/docs`). כל מה שבשורש, כולל קוד השרת, לא מוגש באתר.
 
 ## תכונות
 
