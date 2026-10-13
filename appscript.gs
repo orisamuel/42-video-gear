@@ -13,6 +13,12 @@
 // הרשאות:
 //   - צפייה/השאלה/החזרה/תיקון: כל מי שמחובר לחשבון @42creative.co.il
 //   - הוספה/עריכה/מחיקה של ציוד: אימיילים ברשימת adminEmails בגיליון settings
+//
+// אבטחה: כל פונקציה ברמה העליונה ששמה לא נגמר ב-_ אפשר להריץ ישירות מהדפדפן
+// (google.script.run), בלי לעבור דרך האפליקציה. לכן הפונקציות הציבוריות היחידות הן:
+//   doGet, api_* (כל אחת בודקת getUser_ ואדמין בעצמה), keepWarm (טריגר),
+//   authorizeOnce (להרצה מהעורך, אדמין בלבד). כל השאר נגמרות ב-_.
+//   פונקציה חדשה: או api_ עם בדיקת הרשאה בתחילתה, או _ בסוף השם.
 // ============================================================
 
 const SHEET_ID = '1Bw6zGoOiv8jvmAth1rPT6dgB4hnKi4mgypHFUPjVXgE';
@@ -43,8 +49,8 @@ function doGet(e) {
   }
   if (e && e.parameter && e.parameter.action) {
     // ה-API הישן בוטל — האפליקציה עברה ל-google.script.run מאחורי חומת הדומיין
-    if (e.parameter.action === 'ping') return jsonResponse({ success: true, version: 'v5' });
-    return jsonResponse({ success: false, message: 'ה-API הציבורי בוטל. צילה זמינה רק דרך האפליקציה.' });
+    if (e.parameter.action === 'ping') return jsonResponse_({ success: true, version: 'v5' });
+    return jsonResponse_({ success: false, message: 'ה-API הציבורי בוטל. צילה זמינה רק דרך האפליקציה.' });
   }
   return HtmlService.createHtmlOutputFromFile('app')
     .setTitle('צילה · ניהול ציוד צילום')
@@ -53,7 +59,7 @@ function doGet(e) {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL); // מאפשר עטיפה ב-iframe מהכתובת היפה ב-GitHub Pages
 }
 
-function jsonResponse(data) {
+function jsonResponse_(data) {
   return ContentService
     .createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
@@ -67,7 +73,7 @@ function jsonResponse(data) {
 // בזכות "Execute as Me" + גישה מוגבלת לדומיין, גוגל מזהה את הגולש עבורנו.
 function getUser_() {
   const email = String(Session.getActiveUser().getEmail() || '').toLowerCase();
-  if (!email || email.indexOf('@' + ALLOWED_DOMAIN) === -1) return null;
+  if (!email || !email.endsWith('@' + ALLOWED_DOMAIN)) return null;
   return {
     email: email,
     name: email.split('@')[0],
@@ -87,8 +93,8 @@ const NO_ADMIN = { success: false, message: 'רק אדמין יכול לבצע �
 const SETTINGS_HEADERS = ['key', 'value'];
 const DEFAULT_ADMIN_EMAILS = 'ori@42creative.co.il';
 
-function getSetting(key) {
-  const sheet = ensureSheet('settings', SETTINGS_HEADERS);
+function getSetting_(key) {
+  const sheet = ensureSheet_('settings', SETTINGS_HEADERS);
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][0]) === key) return String(data[i][1]);
@@ -97,9 +103,9 @@ function getSetting(key) {
 }
 
 function getAdminEmails_() {
-  let raw = getSetting('adminEmails');
+  let raw = getSetting_('adminEmails');
   if (raw === null || raw === '') {
-    ensureSheet('settings', SETTINGS_HEADERS).appendRow(['adminEmails', DEFAULT_ADMIN_EMAILS]);
+    ensureSheet_('settings', SETTINGS_HEADERS).appendRow(['adminEmails', DEFAULT_ADMIN_EMAILS]);
     raw = DEFAULT_ADMIN_EMAILS;
   }
   return raw.split(',').map(function(s) { return s.trim().toLowerCase(); }).filter(String);
@@ -107,7 +113,7 @@ function getAdminEmails_() {
 
 // עדכון/הוספה של ערך בגיליון settings
 function setSetting_(key, value) {
-  const sheet = ensureSheet('settings', SETTINGS_HEADERS);
+  const sheet = ensureSheet_('settings', SETTINGS_HEADERS);
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][0]) === key) {
@@ -133,7 +139,7 @@ function api_addAdmin(data) {
   if (!user.isAdmin) return NO_ADMIN;
   const email = String((data || {}).email || '').trim().toLowerCase();
   if (!email || email.indexOf('@') === -1) return { success: false, message: 'אימייל לא תקין' };
-  if (email.indexOf('@' + ALLOWED_DOMAIN) === -1) {
+  if (!email.endsWith('@' + ALLOWED_DOMAIN)) {
     return { success: false, message: 'רק אימיילים של ' + ALLOWED_DOMAIN + ' יכולים להיות אדמינים' };
   }
   const admins = getAdminEmails_();
@@ -164,7 +170,7 @@ function api_removeAdmin(data) {
 function api_getDashboard() {
   const user = getUser_();
   if (!user) return NO_AUTH;
-  const d = getDashboard();
+  const d = getDashboard_();
   d.user = user;
   return d;
 }
@@ -173,27 +179,27 @@ function api_addEquipment(data) {
   const user = getUser_();
   if (!user) return NO_AUTH;
   if (!user.isAdmin) return NO_ADMIN;
-  return addEquipment(data || {});
+  return addEquipment_(data || {});
 }
 
 function api_updateEquipment(data) {
   const user = getUser_();
   if (!user) return NO_AUTH;
   if (!user.isAdmin) return NO_ADMIN;
-  return updateEquipment(data || {});
+  return updateEquipment_(data || {});
 }
 
 function api_deleteEquipment(data) {
   const user = getUser_();
   if (!user) return NO_AUTH;
   if (!user.isAdmin) return NO_ADMIN;
-  return deleteEquipment((data || {}).id);
+  return deleteEquipment_((data || {}).id);
 }
 
 function api_setEquipmentStatus(data) {
   const user = getUser_();
   if (!user) return NO_AUTH;
-  return setEquipmentStatus((data || {}).id, (data || {}).status);
+  return setEquipmentStatus_((data || {}).id, (data || {}).status);
 }
 
 function api_checkoutEquipment(data) {
@@ -203,13 +209,13 @@ function api_checkoutEquipment(data) {
   data.recordedBy = user.email;
   // "מי לוקח" נקבע לפי המשתמש המחובר; רק אדמין רשאי לרשום על שם מישהו אחר.
   if (!user.isAdmin || !String(data.person || '').trim()) data.person = user.name;
-  return checkoutEquipment(data);
+  return checkoutEquipment_(data);
 }
 
 function api_checkinEquipment(data) {
   const user = getUser_();
   if (!user) return NO_AUTH;
-  return checkinEquipment(data || {});
+  return checkinEquipment_(data || {});
 }
 
 // ============================================================
@@ -218,7 +224,7 @@ function api_checkinEquipment(data) {
 // ============================================================
 
 function getImagesFolder_() {
-  const saved = getSetting('imagesFolderId');
+  const saved = getSetting_('imagesFolderId');
   if (saved) {
     try { return DriveApp.getFolderById(saved); } catch (e) {}
   }
@@ -244,7 +250,7 @@ function api_uploadImage(data) {
     const blob = Utilities.newBlob(
       Utilities.base64Decode(data.base64),
       data.mimeType || 'image/jpeg',
-      'tzila-' + newId() + '.jpg'
+      'tzila-' + newId_() + '.jpg'
     );
     const file = getImagesFolder_().createFile(blob);
     return { success: true, fileId: file.getId() };
@@ -253,10 +259,31 @@ function api_uploadImage(data) {
   }
 }
 
-// מריצים פעם אחת מהעורך אחרי הוספת הרשאת Drive — לאישור ההרשאה
+// מעבירה לאשפה תמונה שהוחלפה, רק אם היא בתיקיית התמונות של צילה.
+// הסקריפט רץ כבעלים, ובלי הבדיקה הזאת מזהה של קובץ אחר היה מעביר לאשפה כל קובץ ב-Drive שלו.
+function trashImage_(fileId) {
+  try {
+    const folderId = getSetting_('imagesFolderId');
+    const file = DriveApp.getFileById(fileId);
+    const parents = file.getParents();
+    while (parents.hasNext()) {
+      if (parents.next().getId() === folderId) { file.setTrashed(true); return; }
+    }
+  } catch (e) {}
+}
+
+// מזהה קובץ של Drive: אותיות, ספרות, _ ו-- בלבד. כל ערך אחר (למשל קוד שהוזרק) לא מגיע לדפדפן.
+function driveIdOrEmpty_(v) {
+  const s = String(v || '');
+  return /^[\w-]+$/.test(s) ? s : '';
+}
+
+// מריצים פעם אחת מהעורך אחרי הוספת הרשאת Drive, לאישור ההרשאה (אדמין בלבד)
 function authorizeOnce() {
+  const user = getUser_();
+  if (!user || !user.isAdmin) return NO_ADMIN;
   Logger.log('Drive OK: ' + DriveApp.getRootFolder().getName());
-  Logger.log('Sheet OK: ' + getSpreadsheet().getName());
+  Logger.log('Sheet OK: ' + getSpreadsheet_().getName());
   Logger.log('Images folder: ' + getImagesFolder_().getName());
 }
 
@@ -264,17 +291,17 @@ function authorizeOnce() {
 // HELPERS
 // ============================================================
 
-function getSpreadsheet() {
+function getSpreadsheet_() {
   return SpreadsheetApp.openById(SHEET_ID);
 }
 
-function getSheet(name) {
-  return getSpreadsheet().getSheetByName(name);
+function getSheet_(name) {
+  return getSpreadsheet_().getSheetByName(name);
 }
 
 // Auto-creates the sheet with the given headers if it doesn't exist.
-function ensureSheet(name, headers) {
-  const ss = getSpreadsheet();
+function ensureSheet_(name, headers) {
+  const ss = getSpreadsheet_();
   let sheet = ss.getSheetByName(name);
   if (!sheet) {
     sheet = ss.insertSheet(name);
@@ -284,41 +311,41 @@ function ensureSheet(name, headers) {
   return sheet;
 }
 
-function fmtDate(d) {
+function fmtDate_(d) {
   return Utilities.formatDate(d, 'Asia/Jerusalem', 'dd/MM/yyyy');
 }
 
-function fmtTime(d) {
+function fmtTime_(d) {
   return Utilities.formatDate(d, 'Asia/Jerusalem', 'HH:mm');
 }
 
 // Normalize any date value (Date object or string) to dd/MM/yyyy.
-function normalizeDate(v) {
+function normalizeDate_(v) {
   if (!v && v !== 0) return '';
   const s = String(v);
   if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) return s;
   try {
     const dt = new Date(v);
-    if (!isNaN(dt.getTime())) return fmtDate(dt);
+    if (!isNaN(dt.getTime())) return fmtDate_(dt);
   } catch (e) {}
   return s;
 }
 
 // Normalize any time value (Date object or string) to HH:mm.
 // Sheets auto-converts "16:45" strings into 1899-era Date objects — this undoes that.
-function normalizeTime(v) {
+function normalizeTime_(v) {
   if (!v && v !== 0) return '';
   const s = String(v);
   if (/^\d{1,2}:\d{2}$/.test(s)) return s;
   try {
     const dt = new Date(v);
-    if (!isNaN(dt.getTime())) return fmtTime(dt);
+    if (!isNaN(dt.getTime())) return fmtTime_(dt);
   } catch (e) {}
   return s;
 }
 
 // Find a row by value in a given column. Returns row index (1-based) or -1.
-function findRow(sheet, colIndex, value) {
+function findRow_(sheet, colIndex, value) {
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][colIndex]) === String(value)) return i + 1;
@@ -326,7 +353,7 @@ function findRow(sheet, colIndex, value) {
   return -1;
 }
 
-function newId() {
+function newId_() {
   return Utilities.getUuid().substring(0, 8);
 }
 
@@ -340,7 +367,7 @@ const EQUIPMENT_HEADERS = ['id', 'name', 'category', 'brand', 'serial', 'notes',
 
 // מק״ט פנימי רץ: 42-0001, 42-0002...
 // כולל שורות שנמחקו (active=לא) — מספר לא ממוחזר לעולם.
-function nextAssetTag(sheet) {
+function nextAssetTag_(sheet) {
   const data = sheet.getDataRange().getValues();
   let max = 0;
   for (let i = 1; i < data.length; i++) {
@@ -350,7 +377,7 @@ function nextAssetTag(sheet) {
   return '42-' + String(max + 1).padStart(4, '0');
 }
 
-function equipmentRowToObj(r) {
+function equipmentRowToObj_(r) {
   return {
     id:        String(r[0] || ''),
     name:      String(r[1] || ''),
@@ -359,18 +386,18 @@ function equipmentRowToObj(r) {
     serial:    String(r[4] || ''),
     notes:     String(r[5] || ''),
     status:    String(r[6] || ST_AVAILABLE),
-    addedDate: normalizeDate(r[8]),
+    addedDate: normalizeDate_(r[8]),
     assetTag:  String(r[9] || ''),
-    imageId:   String(r[10] || '')
+    imageId:   driveIdOrEmpty_(r[10])
   };
 }
 
-function addEquipment(data) {
+function addEquipment_(data) {
   try {
     if (!data.name) return { success: false, message: 'חסר שם פריט' };
-    const sheet = ensureSheet('equipment', EQUIPMENT_HEADERS);
-    const id = newId();
-    const tag = nextAssetTag(sheet);
+    const sheet = ensureSheet_('equipment', EQUIPMENT_HEADERS);
+    const id = newId_();
+    const tag = nextAssetTag_(sheet);
     sheet.appendRow([
       id,
       data.name,
@@ -380,7 +407,7 @@ function addEquipment(data) {
       data.notes  || '',
       ST_AVAILABLE,
       'כן',
-      fmtDate(new Date()),
+      fmtDate_(new Date()),
       tag,
       data.imageId || ''
     ]);
@@ -390,11 +417,11 @@ function addEquipment(data) {
   }
 }
 
-function updateEquipment(data) {
+function updateEquipment_(data) {
   try {
-    const sheet = getSheet('equipment');
+    const sheet = getSheet_('equipment');
     if (!sheet) return { success: false, message: 'גיליון equipment לא נמצא' };
-    const row = findRow(sheet, 0, data.id);
+    const row = findRow_(sheet, 0, data.id);
     if (row === -1) return { success: false, message: 'פריט לא נמצא: ' + data.id };
     if (data.name !== undefined && data.name !== '')     sheet.getRange(row, 2).setValue(data.name);
     if (data.category !== undefined) sheet.getRange(row, 3).setValue(data.category);
@@ -405,7 +432,7 @@ function updateEquipment(data) {
       const oldId = String(sheet.getRange(row, 11).getValue() || '');
       if (oldId && oldId !== data.imageId) {
         // התמונה הוחלפה/הוסרה — הישנה לאשפת ה-Drive
-        try { DriveApp.getFileById(oldId).setTrashed(true); } catch (e) {}
+        trashImage_(oldId);
       }
       sheet.getRange(row, 11).setValue(data.imageId);
     }
@@ -416,13 +443,13 @@ function updateEquipment(data) {
 }
 
 // Soft delete: active='לא'. Preserves history and IDs.
-function deleteEquipment(id) {
+function deleteEquipment_(id) {
   try {
-    const sheet = getSheet('equipment');
+    const sheet = getSheet_('equipment');
     if (!sheet) return { success: false, message: 'גיליון equipment לא נמצא' };
-    const row = findRow(sheet, 0, id);
+    const row = findRow_(sheet, 0, id);
     if (row === -1) return { success: false, message: 'פריט לא נמצא: ' + id };
-    if (findOpenCheckoutRow(id) !== -1) {
+    if (findOpenCheckoutRow_(id) !== -1) {
       return { success: false, message: 'לא ניתן למחוק — יש השאלה פתוחה על הפריט. בצעו החזרה קודם.' };
     }
     sheet.getRange(row, 8).setValue('לא');
@@ -433,16 +460,16 @@ function deleteEquipment(id) {
 }
 
 // סטטוס ידני: 'בתיקון' / 'זמין'. חסום כשיש השאלה פתוחה.
-function setEquipmentStatus(id, status) {
+function setEquipmentStatus_(id, status) {
   try {
     if (status !== ST_AVAILABLE && status !== ST_REPAIR) {
       return { success: false, message: 'סטטוס לא חוקי: ' + status };
     }
-    const sheet = getSheet('equipment');
+    const sheet = getSheet_('equipment');
     if (!sheet) return { success: false, message: 'גיליון equipment לא נמצא' };
-    const row = findRow(sheet, 0, id);
+    const row = findRow_(sheet, 0, id);
     if (row === -1) return { success: false, message: 'פריט לא נמצא: ' + id };
-    if (findOpenCheckoutRow(id) !== -1) {
+    if (findOpenCheckoutRow_(id) !== -1) {
       return { success: false, message: 'יש השאלה פתוחה על הפריט — בצעו החזרה קודם.' };
     }
     sheet.getRange(row, 7).setValue(status);
@@ -463,18 +490,18 @@ const CHECKOUTS_HEADERS = ['id', 'equipmentId', 'equipmentName', 'person', 'proj
                            'checkoutDate', 'checkoutTime', 'dueDate',
                            'returnDate', 'returnTime', 'status', 'notes', 'recordedBy'];
 
-function checkoutRowToObj(r) {
+function checkoutRowToObj_(r) {
   return {
     id:            String(r[0] || ''),
     equipmentId:   String(r[1] || ''),
     equipmentName: String(r[2] || ''),
     person:        String(r[3] || ''),
     project:       String(r[4] || ''),
-    checkoutDate:  normalizeDate(r[5]),
-    checkoutTime:  normalizeTime(r[6]),
-    dueDate:       normalizeDate(r[7]),
-    returnDate:    normalizeDate(r[8]),
-    returnTime:    normalizeTime(r[9]),
+    checkoutDate:  normalizeDate_(r[5]),
+    checkoutTime:  normalizeTime_(r[6]),
+    dueDate:       normalizeDate_(r[7]),
+    returnDate:    normalizeDate_(r[8]),
+    returnTime:    normalizeTime_(r[9]),
     status:        String(r[10] || ''),
     notes:         String(r[11] || ''),
     recordedBy:    String(r[12] || '')
@@ -482,8 +509,8 @@ function checkoutRowToObj(r) {
 }
 
 // Returns row index (1-based) of the open checkout for an equipment id, or -1.
-function findOpenCheckoutRow(equipmentId) {
-  const sheet = ensureSheet('checkouts', CHECKOUTS_HEADERS);
+function findOpenCheckoutRow_(equipmentId) {
+  const sheet = ensureSheet_('checkouts', CHECKOUTS_HEADERS);
   const data = sheet.getDataRange().getValues();
   for (let i = data.length - 1; i >= 1; i--) {
     if (String(data[i][1]) === String(equipmentId) && String(data[i][10]) === CO_OPEN) {
@@ -494,21 +521,21 @@ function findOpenCheckoutRow(equipmentId) {
 }
 
 // השאלה: יוצר רשומה פתוחה + מסמן את הפריט כ"מושאל"
-function checkoutEquipment(data) {
+function checkoutEquipment_(data) {
   try {
     if (!data.equipmentId) return { success: false, message: 'חסר מזהה פריט' };
     if (!data.person)      return { success: false, message: 'חסר שם — מי לוקח את הציוד?' };
 
-    const eqSheet = ensureSheet('equipment', EQUIPMENT_HEADERS);
-    const eqRow = findRow(eqSheet, 0, data.equipmentId);
+    const eqSheet = ensureSheet_('equipment', EQUIPMENT_HEADERS);
+    const eqRow = findRow_(eqSheet, 0, data.equipmentId);
     if (eqRow === -1) return { success: false, message: 'פריט לא נמצא: ' + data.equipmentId };
 
     const eqValues = eqSheet.getRange(eqRow, 1, 1, EQUIPMENT_HEADERS.length).getValues()[0];
-    const eq = equipmentRowToObj(eqValues);
+    const eq = equipmentRowToObj_(eqValues);
 
-    const openRow = findOpenCheckoutRow(data.equipmentId);
+    const openRow = findOpenCheckoutRow_(data.equipmentId);
     if (openRow !== -1) {
-      const coSheet = getSheet('checkouts');
+      const coSheet = getSheet_('checkouts');
       const holder = String(coSheet.getRange(openRow, 4).getValue());
       return { success: false, message: 'הפריט כבר מושאל אצל ' + holder + '. בצעו החזרה קודם.' };
     }
@@ -516,17 +543,17 @@ function checkoutEquipment(data) {
       return { success: false, message: 'הפריט בתיקון — לא ניתן להשאיל אותו כרגע.' };
     }
 
-    const coSheet = ensureSheet('checkouts', CHECKOUTS_HEADERS);
+    const coSheet = ensureSheet_('checkouts', CHECKOUTS_HEADERS);
     const now = new Date();
-    const id = newId();
+    const id = newId_();
     coSheet.appendRow([
       id,
       data.equipmentId,
       eq.name,
       data.person,
       data.project || '',
-      fmtDate(now),
-      fmtTime(now),
+      fmtDate_(now),
+      fmtTime_(now),
       data.dueDate || '',
       '', '',
       CO_OPEN,
@@ -541,17 +568,17 @@ function checkoutEquipment(data) {
 }
 
 // החזרה: סוגר את הרשומה הפתוחה + מחזיר את הפריט ל"זמין"
-function checkinEquipment(data) {
+function checkinEquipment_(data) {
   try {
     if (!data.equipmentId) return { success: false, message: 'חסר מזהה פריט' };
 
-    const openRow = findOpenCheckoutRow(data.equipmentId);
+    const openRow = findOpenCheckoutRow_(data.equipmentId);
     if (openRow === -1) return { success: false, message: 'לא נמצאה השאלה פתוחה לפריט הזה.' };
 
-    const coSheet = getSheet('checkouts');
+    const coSheet = getSheet_('checkouts');
     const now = new Date();
-    coSheet.getRange(openRow, 9).setValue(fmtDate(now));   // returnDate
-    coSheet.getRange(openRow, 10).setValue(fmtTime(now));  // returnTime
+    coSheet.getRange(openRow, 9).setValue(fmtDate_(now));   // returnDate
+    coSheet.getRange(openRow, 10).setValue(fmtTime_(now));  // returnTime
     coSheet.getRange(openRow, 11).setValue(CO_RETURNED);   // status
     if (data.notes) {
       const existing = String(coSheet.getRange(openRow, 12).getValue() || '');
@@ -559,8 +586,8 @@ function checkinEquipment(data) {
       coSheet.getRange(openRow, 12).setValue(combined);
     }
 
-    const eqSheet = getSheet('equipment');
-    const eqRow = findRow(eqSheet, 0, data.equipmentId);
+    const eqSheet = getSheet_('equipment');
+    const eqRow = findRow_(eqSheet, 0, data.equipmentId);
     if (eqRow !== -1) eqSheet.getRange(eqRow, 7).setValue(ST_AVAILABLE);
 
     return { success: true, message: 'הציוד הוחזר. תודה!' };
@@ -580,10 +607,10 @@ function syncHeaders_(sheet, headers) {
   }
 }
 
-function getDashboard() {
+function getDashboard_() {
   try {
-    const eqSheet = ensureSheet('equipment', EQUIPMENT_HEADERS);
-    const coSheet = ensureSheet('checkouts', CHECKOUTS_HEADERS);
+    const eqSheet = ensureSheet_('equipment', EQUIPMENT_HEADERS);
+    const coSheet = ensureSheet_('checkouts', CHECKOUTS_HEADERS);
     syncHeaders_(eqSheet, EQUIPMENT_HEADERS);
     syncHeaders_(coSheet, CHECKOUTS_HEADERS);
 
@@ -594,7 +621,7 @@ function getDashboard() {
     const projectsSet = {};
 
     for (let i = 1; i < coData.length; i++) {
-      const co = checkoutRowToObj(coData[i]);
+      const co = checkoutRowToObj_(coData[i]);
       if (!co.id) continue;
       history.push(co);
       if (co.person)  personsSet[co.person] = true;
@@ -609,7 +636,7 @@ function getDashboard() {
       const r = eqData[i];
       if (!r[0]) continue;
       if (String(r[7]) === 'לא') continue; // soft-deleted
-      const eq = equipmentRowToObj(r);
+      const eq = equipmentRowToObj_(r);
       const open = openByEquipment[eq.id];
       if (open) {
         eq.status       = ST_OUT; // הרשומה הפתוחה היא מקור האמת

@@ -1,0 +1,36 @@
+# צילה (42-video-gear)
+
+מערכת לניהול והשאלה של ציוד הצילום של 42: מי לקח מה, מתי ולאיזה פרויקט. מאחורי חומת הכניסה של Google, רק לחשבונות `@42creative.co.il`. פירוט תכונות ב-`README.md`.
+
+**הריפו ציבורי** (GitHub Pages בחשבון חינמי עובד רק מריפו ציבורי), כולל הקובץ הזה. לא מכניסים לריפו שום דבר רגיש.
+
+## כתובות
+- **לצוות:** https://orisamuel.github.io/42-video-gear/ (עטיפה ב-Pages עם iframe מסך מלא. תמיד לתת את הכתובת הזאת, לא את של גוגל)
+- Web App ישיר: https://script.google.com/a/macros/42creative.co.il/s/AKfycbwYpBTjZV-ONyKbpL9OsyirMDLVjOpMphNEvIC-CB4wg1QgcaHrVvg_Rnb1rGytKYjSBA/exec
+- הגיליון (DB): https://docs.google.com/spreadsheets/d/1Bw6zGoOiv8jvmAth1rPT6dgB4hnKi4mgypHFUPjVXgE/edit (גיליונות `equipment`, `checkouts`, `settings`)
+- הסקריפט: https://script.google.com/home/projects/1gwi2lpMyxrQY0LymVL6gVCARh98E2odBsts-781ZXzuU4i7Ixc6M6pMa/edit (בחשבון ori@42creative.co.il)
+- יומן הפעלות (לאימות שהשרת חי, דרך הכרום של אורי): https://script.google.com/home/executions
+
+## מבנה
+- `appscript.gs`: קוד השרת. `app.html`: כל האפליקציה, מוגשת ב-HtmlService. **אלה המקורות היחידים.**
+- `apps-script/`: תיקיית clasp (`.clasp.json`, `appsscript.json` עם הגדרות הפריסה: Execute as Me, Access Domain). `deploy.sh` מעתיק אליה את המקורות לפני push, והעותקים ב-`.gitignore`.
+- `docs/`: **האתר ב-GitHub Pages, ורק הוא** (`index.html` והאייקונים). Pages: deploy from branch, `main`, `/docs`. `docs/favicon-64.png` משמש גם את Apps Script (`FAVICON_URL`).
+
+## פריסה
+- `./deploy.sh "תיאור"` (ב-bash): בודק שהעותק כולל את כל `origin/main` ושאין פונקציה ציבורית בלי בדיקת הרשאה, ואז `clasp push -f` ועדכון אותה פריסה, כך שהכתובת לא משתנה.
+- clasp 2.4.2 מחובר כ-ori@42creative.co.il. לא לפרוס מחשבון אחר: הפריסה רצה בהרשאות של מי שפרס.
+- אחרי פריסה: `npx @google/clasp@2.4.2 deployments` מראה את מספר הגרסה החדש.
+- שינוי באתר: רק בתוך `docs/`, ולוודא שלא נכנס לשם קובץ פנימי.
+
+## אבטחה (לכל שינוי בשרת)
+- **כל פונקציה ברמה העליונה ב-`appscript.gs` ששמה לא נגמר ב-`_` אפשר להריץ ישירות מהדפדפן** (`google.script.run`), בלי לעבור דרך האפליקציה.
+- לכן הפונקציות הציבוריות היחידות: `doGet`, `api_*` (כל אחת מתחילה ב-`getUser_()`, ופעולות ניהול בודקות `isAdmin`), `keepWarm` (טריגר כל 10 דקות, חייב להישאר ציבורי) ו-`authorizeOnce` (להרצה מהעורך, אדמין בלבד). כל השאר נגמרות ב-`_`. `deploy.sh` עוצר פריסה שמפרה את זה.
+- זהות לא מגיעה מהדפדפן: `recordedBy` ו"מי לוקח" נקבעים בשרת לפי `Session.getActiveUser()`. רק אדמין יכול לרשום השאלה על שם מישהו אחר.
+- הרשאות: צפייה, השאלה, החזרה ותיקון לכל הדומיין. הוספה, עריכה, מחיקה, העלאת תמונות וניהול אדמינים לאדמינים בלבד (`settings` ← `adminEmails`, או מפאנל הניהול באפליקציה).
+
+## החלטות
+- **13/10/2026, תיקון אבטחה** (מסקירת האבטחה של כל הריפואים, באישור אורי):
+  - הפונקציות הפנימיות (`addEquipment`, `updateEquipment`, `deleteEquipment`, `checkoutEquipment` ועוד 18) קיבלו `_`. לפני כן כל עובד בדומיין יכול היה לקרוא להן ישירות, לעקוף את בדיקת האדמין ולזייף `recordedBy`. נבחר שינוי שם ולא בדיקה בתוך כל פונקציה, כי הן נקראות רק מתוך `api_*`, שכבר בודקות הרשאה: מקום אחד לבדיקה.
+  - האתר עבר ל-`docs/`. עם `.nojekyll` בשורש, Pages הגיש את כל הריפו, כולל `appscript.gs`, `app.html` ו-`deploy.sh`. אחרי המעבר הם מחזירים 404 (אומת).
+  - הקוד היה שמור פעמיים (בשורש וב-`apps-script/`). נשאר מקור אחד, בשורש.
+  - בדרך: תמונה שהוחלפה עוברת לאשפה רק אם היא בתיקיית התמונות של צילה (הסקריפט רץ כבעלים, ומזהה של קובץ אחר היה מעביר לאשפה כל קובץ ב-Drive של אורי). מזהה תמונה לא תקין לא נשלח לדפדפן, הודעות קופצות עוברות `esc`, ובדיקת הדומיין היא `endsWith`.
