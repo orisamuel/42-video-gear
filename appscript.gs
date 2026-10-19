@@ -22,6 +22,11 @@
 // ============================================================
 
 const SHEET_ID = '1Bw6zGoOiv8jvmAth1rPT6dgB4hnKi4mgypHFUPjVXgE';
+
+// מ-19/10/2026 צילה עברה לבית חדש, על המסד והכניסה של ימימה, עם אותם פריטים, מק"טים והיסטוריה.
+// הסקריפט והגיליון נשארים כארכיון לקריאה בלבד: אי אפשר לשנות כאן כלום, וכל כניסה מפנה לבית החדש.
+const NEW_HOME = 'https://yemima-42.vercel.app/tzila';
+const MOVED = { success: false, moved: NEW_HOME, message: 'צילה עברה לבית חדש: ' + NEW_HOME + ' . כאן כבר אי אפשר לשנות.' };
 const ALLOWED_DOMAIN = '42creative.co.il';
 const FAVICON_URL = 'https://orisamuel.github.io/42-video-gear/favicon-64.png';
 
@@ -52,11 +57,17 @@ function doGet(e) {
     if (e.parameter.action === 'ping') return jsonResponse_({ success: true, version: 'v5' });
     return jsonResponse_({ success: false, message: 'ה-API הציבורי בוטל. צילה זמינה רק דרך האפליקציה.' });
   }
-  return HtmlService.createHtmlOutputFromFile('app')
-    .setTitle('צילה · ניהול ציוד צילום')
+  return HtmlService.createHtmlOutput(
+    '<div style="font-family:Heebo,Arial,sans-serif;direction:rtl;background:#0A0A0B;color:#FAFAFA;position:fixed;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;">' +
+    '<div><img src="' + FAVICON_URL + '" width="72" height="72" alt="" style="opacity:.9">' +
+    '<h1 style="margin:14px 0 8px;font-size:2rem;">צילה עברה לבית חדש</h1>' +
+    '<p style="color:#A1A1AA;max-width:340px;margin:0 auto 22px;line-height:1.7;">אותו ציוד, אותם מק"טים ואותה היסטוריה. נכנסים עם החשבון של 42, ומשם גם משריינים ציוד לימי צילום.</p>' +
+    '<a href="' + NEW_HOME + '" target="_top" style="display:inline-block;background:#fff;color:#0A0A0B;font-weight:800;text-decoration:none;padding:13px 26px;border-radius:10px;">לצילה החדשה ←</a></div></div>'
+  )
+    .setTitle('צילה עברה לבית חדש')
     .setFaviconUrl(FAVICON_URL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL); // מאפשר עטיפה ב-iframe מהכתובת היפה ב-GitHub Pages
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 function jsonResponse_(data) {
@@ -135,6 +146,7 @@ function api_getAdmins() {
 
 function api_addAdmin(data) {
   const user = getUser_();
+  if (user) return MOVED; // ארכיון: צילה עברה לבית חדש
   if (!user) return NO_AUTH;
   if (!user.isAdmin) return NO_ADMIN;
   const email = String((data || {}).email || '').trim().toLowerCase();
@@ -151,6 +163,7 @@ function api_addAdmin(data) {
 
 function api_removeAdmin(data) {
   const user = getUser_();
+  if (user) return MOVED; // ארכיון: צילה עברה לבית חדש
   if (!user) return NO_AUTH;
   if (!user.isAdmin) return NO_ADMIN;
   const email = String((data || {}).email || '').trim().toLowerCase();
@@ -177,6 +190,7 @@ function api_getDashboard() {
 
 function api_addEquipment(data) {
   const user = getUser_();
+  if (user) return MOVED; // ארכיון: צילה עברה לבית חדש
   if (!user) return NO_AUTH;
   if (!user.isAdmin) return NO_ADMIN;
   return addEquipment_(data || {});
@@ -184,6 +198,7 @@ function api_addEquipment(data) {
 
 function api_updateEquipment(data) {
   const user = getUser_();
+  if (user) return MOVED; // ארכיון: צילה עברה לבית חדש
   if (!user) return NO_AUTH;
   if (!user.isAdmin) return NO_ADMIN;
   return updateEquipment_(data || {});
@@ -191,6 +206,7 @@ function api_updateEquipment(data) {
 
 function api_deleteEquipment(data) {
   const user = getUser_();
+  if (user) return MOVED; // ארכיון: צילה עברה לבית חדש
   if (!user) return NO_AUTH;
   if (!user.isAdmin) return NO_ADMIN;
   return deleteEquipment_((data || {}).id);
@@ -198,12 +214,14 @@ function api_deleteEquipment(data) {
 
 function api_setEquipmentStatus(data) {
   const user = getUser_();
+  if (user) return MOVED; // ארכיון: צילה עברה לבית חדש
   if (!user) return NO_AUTH;
   return setEquipmentStatus_((data || {}).id, (data || {}).status);
 }
 
 function api_checkoutEquipment(data) {
   const user = getUser_();
+  if (user) return MOVED; // ארכיון: צילה עברה לבית חדש
   if (!user) return NO_AUTH;
   data = data || {};
   data.recordedBy = user.email;
@@ -214,6 +232,7 @@ function api_checkoutEquipment(data) {
 
 function api_checkinEquipment(data) {
   const user = getUser_();
+  if (user) return MOVED; // ארכיון: צילה עברה לבית חדש
   if (!user) return NO_AUTH;
   return checkinEquipment_(data || {});
 }
@@ -241,6 +260,7 @@ function getImagesFolder_() {
 // העלאת תמונה (אדמין בלבד). מקבלת JPEG מכווץ כ-base64, מחזירה fileId.
 function api_uploadImage(data) {
   const user = getUser_();
+  if (user) return MOVED; // ארכיון: צילה עברה לבית חדש
   if (!user) return NO_AUTH;
   if (!user.isAdmin) return NO_ADMIN;
   try {
