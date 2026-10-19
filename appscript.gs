@@ -25,7 +25,7 @@ const SHEET_ID = '1Bw6zGoOiv8jvmAth1rPT6dgB4hnKi4mgypHFUPjVXgE';
 
 // מ-19/10/2026 צילה עברה לבית חדש, על המסד והכניסה של ימימה, עם אותם פריטים, מק"טים והיסטוריה.
 // הסקריפט והגיליון נשארים כארכיון לקריאה בלבד: אי אפשר לשנות כאן כלום, וכל כניסה מפנה לבית החדש.
-const NEW_HOME = 'https://yemima-42.vercel.app/tzila';
+const NEW_HOME = 'https://tzila-42.vercel.app';
 const MOVED = { success: false, moved: NEW_HOME, message: 'צילה עברה לבית חדש: ' + NEW_HOME + ' . כאן כבר אי אפשר לשנות.' };
 const ALLOWED_DOMAIN = '42creative.co.il';
 const FAVICON_URL = 'https://orisamuel.github.io/42-video-gear/favicon-64.png';
